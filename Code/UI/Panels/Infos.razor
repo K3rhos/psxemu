@@ -1,0 +1,70 @@
+@using System
+@using System.IO
+@using Sandbox.UI
+
+@namespace PSXEmu
+
+@inherits Panel
+
+@* ROM information - an inline panel (same shape as Settings) that the launcher
+   swaps in over the carousel when the user presses Infos (R3). Shows the
+   currently-selected entry's Name / Serial / Path. The parent passes the entry:
+       <Infos Entry="@GetCurrentEntry()" OnClose=@CloseInfos /> *@
+
+<root>
+
+	@if (Entry != null)
+	{
+		<div class="infos-panel">
+
+			<div class="infos-header">
+
+				<span class="material-icon infos-head-icon">info</span>
+				<span class="infos-head-title">ROM Information</span>
+
+				<button class="infos-close" onclick="@Close">
+					<span class="material-icon">arrow_back</span>
+				</button>
+			</div>
+
+			<div class="infos-body">
+
+				<div class="info-row">
+					<span class="info-label">Name</span>
+					<span class="info-value">@Entry.DisplayName</span>
+				</div>
+
+				<div class="info-row">
+					<span class="info-label">Serial</span>
+					<span class="info-value">@Field(Entry.SerialId)</span>
+				</div>
+
+				<div class="info-row">
+					<span class="info-label">Type</span>
+					<span class="info-value">@(Entry.IsBios ? "BIOS" : "GAME")</span>
+				</div>
+
+				<div class="info-row">
+					<span class="info-label">Path</span>
+					<span class="info-value info-path">@Entry.Path</span>
+				</div>
+			</div>
+		</div>
+	}
+</root>
+
+@code
+{
+	// Set by the parent each frame while the panel is open.
+	public EmulatorComponent.LaunchEntry Entry { get; set; }
+
+	// Invoked when the user backs out (back arrow / Back / Infos toggle).
+	public Action OnClose { get; set; }
+
+	private void Close() => OnClose?.Invoke();
+
+	private static string Field(string v) => string.IsNullOrWhiteSpace(v) ? "N/A" : v;
+
+	protected override int BuildHash()
+		=> HashCode.Combine(Entry?.Path, Entry?.SerialId, Entry?.DisplayName, Entry?.IsBios);
+}

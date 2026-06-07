@@ -1,0 +1,157 @@
+/* -----------------------------------------------------------
+   Infos - inline ROM-information panel. Same inline shape as Settings:
+   fills the launcher content area (where the carousel sits) when open.
+   ----------------------------------------------------------- */
+
+Infos
+{
+	position: relative;
+
+	flex-grow: 1;
+	flex-direction: column;
+	align-items: stretch;
+
+	width: 100%;
+	min-height: 0;
+
+	pointer-events: all;
+
+	font-family: Poppins;
+	color: #f0ead8;
+}
+
+/* s&box scopes SCSS per-component, so re-declare the icon font here. */
+.material-icon
+{
+	font-family: Material Icons;
+	font-size: 22px;
+	line-height: 22px;
+	font-weight: 400;
+	text-transform: none;
+}
+
+.infos-panel
+{
+	position: relative;
+
+	flex-grow: 1;
+	flex-direction: column;
+	align-items: stretch;
+
+	width: 100%;
+	min-height: 0;
+
+	overflow: hidden;
+}
+
+.infos-header
+{
+	flex-direction: row;
+	align-items: center;
+	gap: 12px;
+
+	padding: 18px 36px;
+	border-bottom: 1px solid #ffffff14;
+
+	.infos-head-icon
+	{
+		font-size: 26px;
+		line-height: 26px;
+		color: #ffcc7a;
+	}
+
+	.infos-head-title
+	{
+		flex-grow: 1;
+		font-size: 22px;
+		font-weight: 800;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: #f7f1e7;
+	}
+}
+
+.infos-close
+{
+	align-items: center;
+	justify-content: center;
+
+	width: 32px;
+	height: 32px;
+
+	border-radius: 8px;
+	border: 1px solid #ffffff1e;
+	background-color: #ffffff0a;
+	color: #c8bfa8;
+
+	cursor: pointer;
+	transition: all 0.1s ease-out;
+
+	.material-icon { font-size: 20px; line-height: 20px; }
+
+	&:hover
+	{
+		background-color: #ffffff18;
+		border-color: #ffffff38;
+		color: #f0ead8;
+
+		sound-in: ui.button.over;
+	}
+}
+
+.infos-body
+{
+	flex-direction: column;
+	flex-grow: 1;
+	align-items: stretch;
+
+	padding: 12px 36px 24px;
+
+	min-height: 0;
+	overflow-x: hidden;
+	overflow-y: scroll;
+}
+
+.info-row
+{
+	flex-direction: row;
+	align-items: center;
+	gap: 24px;
+
+	min-height: 58px;
+	padding: 14px 0;
+
+	border-bottom: 1px solid #ffffff0c;
+}
+
+.info-label
+{
+	width: 150px;
+	flex-shrink: 0;
+
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: #f0ead868;
+}
+
+.info-value
+{
+	flex-grow: 1;
+
+	font-size: 16px;
+	font-weight: 600;
+	color: #f0ead8;
+
+	word-break: break-all;
+	white-space: normal;
+}
+
+.info-value.info-path
+{
+	font-size: 13px;
+	font-weight: 500;
+	color: #f0ead8aa;
+	font-family: Cascadia Code;
+}

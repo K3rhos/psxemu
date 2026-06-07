@@ -1,0 +1,751 @@
+@using System.Threading.Tasks
+@using Sandbox.UI
+
+@namespace PSXEmu
+
+@inherits PanelComponent
+
+<root>
+
+	@{
+		var emu = EmulatorComponent.Current;
+	}
+
+	@if (emu.IsValid() && !emu.IsReady)
+	{
+		<div class="launcher-shell">
+
+			<div class="launcher-bg">
+
+				<div class="launcher-bg-glow"></div>
+			</div>
+
+			<div class="launcher-frame">
+
+				@if (_settingsOpen)
+				{
+					<Settings @ref="_settingsPanel" OnClose=@CloseSettings/>
+				}
+				else if (_infosOpen)
+				{
+					<Infos Entry="@GetCurrentEntry()" OnClose=@CloseInfos/>
+				}
+				else
+				{
+					<div class="top-bar">
+
+						<div class="top-bar-brand">
+
+							<span class="material-icon brand-icon">home</span>
+							<span class="brand-name">Home</span>
+						</div>
+
+						@if (_step == 1)
+						{
+							<div class="top-bar-bios">@GetSelectedBiosName()</div>
+						}
+					</div>
+					
+					<div class="launcher-content">
+						
+						<div class="section-header">
+
+							<div class="section-step-tag">@(_step == 0 ? "Step 01 of 02" : "Step 02 of 02")</div>
+							<h2 class="section-title">@(_step == 0 ? "Select BIOS" : "Select Game")</h2>
+
+							<p class="section-desc">
+								@(_step == 0
+									? "Navigate left and right to choose a BIOS, then press Continue."
+									: "Navigate left and right to choose a ROM, or launch the BIOS shell directly.")
+							</p>
+						</div>
+						
+						<div class="carousel-zone">
+
+							@if (emu.IsRefreshing)
+							{
+								<div class="blade-loading">
+
+									<span class="material-icon">sync</span>
+									<label>SCANNING LIBRARY...</label>
+								</div>
+							}
+							else if (_step == 0)
+							{
+								@if (emu.AvailableBios.Count == 0)
+								{
+									<div class="empty-state">
+
+										<span class="material-icon empty-icon">warning</span>
+										<h3>No BIOS files found</h3>
+										<p>Place a BIOS ROM in the <code>bios/</code> folder, then hit Refresh.</p>
+									</div>
+								}
+								else
+								{
+									<div class="blade-nav">
+
+										<div class="blade-track">
+
+											@for (int i = 0; i < emu.AvailableBios.Count; i++)
+											{
+												var bios = emu.AvailableBios[i];
+												int offset = i - _biosIndex;
+												string pos = GetPosClass(offset);
+												int idx = i;
+
+												<div class="blade-card bios-card @pos" @key="@bios.Path"
+												     onclick="@(() => OnBiosCardClick(idx))">
+
+													<div class="blade-top">
+
+														<span class="material-icon blade-icon">memory</span>
+													</div>
+												</div>
+											}
+										</div>
+									</div>
+
+									<div class="blade-caption">@(GetCurrentEntry()?.DisplayName)</div>
+
+									<div class="blade-counter">
+										@(_biosIndex + 1) / @emu.AvailableBios.Count
+									</div>
+								}
+							}
+							else
+							{
+								@if (emu.AvailableGames.Count == 0)
+								{
+									<div class="empty-state">
+
+										<span class="material-icon empty-icon">album</span>
+										<h3>No games found</h3>
+										<p>Add disc images to a <code>roms/</code> folder, or launch the BIOS shell below.</p>
+									</div>
+								}
+								else
+								{
+									var filteredGames = GetFilteredGames();
+
+									<!-- Alphabet filter row. DPad Up from the carousel focuses this
+									     row; DPad Left/Right then changes the letter. The "ALL"
+									     entry shows every game; A..Z filters to titles starting with
+									     that letter. -->
+									<div class="letter-nav @(_focusOnLetters ? "focused" : "")">
+
+										<button
+											class="letter-btn @(_letterIndex == 0 ? "selected" : "") @(_focusOnLetters && _letterIndex == 0 ? "focus" : "")"
+											onclick="@(() => SelectLetter(0))">ALL</button>
+
+										@for (int li = 1; li <= 26; li++)
+										{
+											int letterIdx = li;
+											string letter = ((char)('A' + li - 1)).ToString();
+
+											<button
+												class="letter-btn @(_letterIndex == letterIdx ? "selected" : "") @(_focusOnLetters && _letterIndex == letterIdx ? "focus" : "")"
+												onclick="@(() => SelectLetter(letterIdx))">@letter</button>
+										}
+									</div>
+
+									<!-- Fixed-height slot so the alphabet bar above doesn't jump
+									     vertically when the filtered list goes empty (empty-state
+									     has a different intrinsic height than the carousel + counter
+									     combo). Whichever child is shown gets vertically centered
+									     inside this slot. -->
+									<div class="game-content">
+
+										@if (filteredGames.Count == 0)
+										{
+											<div class="empty-state">
+
+												<span class="material-icon empty-icon">filter_alt_off</span>
+												<h3>No games starting with "@GetCurrentLetterLabel()"</h3>
+												<p>Pick a different letter or choose ALL.</p>
+											</div>
+										}
+										else
+										{
+											<div class="blade-nav">
+
+												<div class="blade-track">
+
+													@for (int i = 0; i < filteredGames.Count; i++)
+													{
+														var game = filteredGames[i];
+														int offset = i - _gameIndex;
+														string pos = GetPosClass(offset);
+														int idx = i;
+
+														// @key by game.Path so each game keeps its own DOM
+														// element across filter changes. Without this, when
+														// the user switches letter "A" -> "R", the centre card
+														// is the same DOM node and the <Image Texture=...>
+														// binding can fail to refresh, the previous letter's
+														// cover art stays visible until the next forced
+														// re-render. Pinning the key to a stable per-game
+														// value forces the renderer to treat them as distinct.
+														<div class="blade-card game-card @pos" @key="@game.Path"
+														     onclick="@(() => OnGameCardClick(idx))">
+
+															<div class="blade-top @(!game.CoverTexture.IsValid() ? "" : "has-cover")">
+
+																@if (!game.CoverTexture.IsValid())
+																{
+																	<span class="material-icon blade-icon">album</span>
+																}
+																else
+																{
+																	<Image class="cover-art" Texture="@game.CoverTexture"/>
+																}
+															</div>
+														</div>
+													}
+												</div>
+											</div>
+
+											<div class="blade-caption">@(GetCurrentEntry()?.DisplayName)</div>
+
+											<div class="blade-counter">
+												@(_gameIndex + 1) / @filteredGames.Count
+											</div>
+										}
+									</div>
+								}
+							}
+						</div>
+					</div>
+				}
+				
+				<div class="action-bar">
+					
+					<div class="control-hints">
+						
+						@if (_settingsOpen)
+						{
+							<ControlHint name="NavUp,NavDown" value="Navigate"/>
+							<ControlHint name="PrevCat,NextCat" value="Category"/>
+							<ControlHint name="NavLeft,NavRight" value="Select"/>
+							<ControlHint name="Back" value="Back"/>
+							<ControlHint name="Accept" value="Toggle"/>
+						}
+						else if (_infosOpen)
+						{
+							<ControlHint name="Back" value="Back"/>
+						}
+						else if (_step == 0)
+						{
+							<ControlHint name="NavLeft,NavRight" value="Navigate"/>
+							<ControlHint name="Settings" value="Settings"/>
+							<ControlHint name="Infos" value="Info"/>
+							<ControlHint name="Refresh" value="Refresh List"/>
+							<ControlHint name="Accept" value="Continue"/>
+						}
+						else
+						{
+							<ControlHint name="NavLeft,NavRight,NavUp,NavDown" value="Navigate"/>
+							<ControlHint name="Settings" value="Settings"/>
+							<ControlHint name="Infos" value="Info"/>
+							<ControlHint name="Refresh" value="Refresh List"/>
+							<ControlHint name="Bios" value="Launch BIOS"/>
+							<ControlHint name="Back" value="Back"/>
+							<ControlHint name="Accept" value="Launch"/>
+						}
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+	else if (emu.IsValid() && emu.IsReady)
+	{
+		<Image class="psx-display" Texture="@emu.ScreenTexture" />
+
+		@if (emu.ShowPerformanceOverlay && !string.IsNullOrEmpty(emu.PerfSummary))
+		{
+			<label class="perf-overlay">@emu.PerfSummary</label>
+		}
+	}
+	else if (emu.IsValid() && !string.IsNullOrEmpty(emu.ErrorMessage))
+	{
+		<div class="psx-error">
+
+			<label>PSX Emulator Error</label>
+			<label>@emu.ErrorMessage</label>
+		</div>
+	}
+</root>
+
+@code
+{
+	private int _step;
+	private int _biosIndex;
+	private int _gameIndex;
+	private string _selectedBiosPath;
+
+	// Alphabet-filter state. _letterIndex == 0 means "show ALL"; values 1..26
+	// filter to games whose DisplayName starts with 'A'..'Z' respectively.
+	// _focusOnLetters routes DPad Left/Right to the letter bar when true; DPad
+	// Up/Down toggles the focus between the letter row and the game carousel.
+	private int _letterIndex;
+	private bool _focusOnLetters;
+
+	// Hold-to-repeat for DPad Left/Right. After the initial press fires one
+	// move, holding the direction for DPadRepeatDelay engages fast-scroll mode
+	// at DPadRepeatInterval cadence (~12 moves/sec). Reset to 0 on each press
+	// edge so a tap stays a single move.
+	private const float DPadRepeatDelay = 0.30f;
+	private const float DPadRepeatInterval = 0.08f;
+	private TimeSince _leftHeldSince;
+	private TimeSince _rightHeldSince;
+	private TimeSince _leftLastRepeat;
+	private TimeSince _rightLastRepeat;
+
+	protected override void OnStart()
+	{
+		var emu = EmulatorComponent.Current;
+		if (!emu.IsValid()) return;
+
+		_selectedBiosPath = emu.SelectedBiosPath;
+		var bios = emu.AvailableBios;
+		for (int i = 0; i < bios.Count; i++)
+		{
+			if (string.Equals(bios[i].Path, _selectedBiosPath, StringComparison.OrdinalIgnoreCase))
+			{
+				_biosIndex = i;
+				break;
+			}
+		}
+	}
+
+	protected override void OnUpdate()
+	{
+		var emu = EmulatorComponent.Current;
+
+		if (emu.IsValid() && string.IsNullOrWhiteSpace(_selectedBiosPath))
+			_selectedBiosPath = emu.SelectedBiosPath;
+
+		if (emu.IsValid() && !emu.IsReady)
+		{
+			Mouse.Visibility = Input.UsingController ? MouseVisibility.Hidden : MouseVisibility.Auto;
+
+			if (_settingsOpen)
+				HandleSettingsInput();
+			else if (_infosOpen)
+				HandleInfosInput();
+			else
+			{
+				// DPad Left/Right with hold-to-repeat. Press edge always fires one
+				// move (matches the click behaviour). Holding the direction for
+				// DPadRepeatDelay seconds engages "fast scroll", repeated moves
+				// at DPadRepeatInterval cadence, until the button is released.
+				// Useful for long game lists and the 26-letter alphabet row.
+				if (Input.Pressed("NavLeft"))
+				{
+					DoLeftMove();
+					_leftHeldSince = 0;
+					_leftLastRepeat = 0;
+				}
+				else if (Input.Down("NavLeft")
+					&& _leftHeldSince > DPadRepeatDelay
+					&& _leftLastRepeat > DPadRepeatInterval)
+				{
+					DoLeftMove();
+					_leftLastRepeat = 0;
+				}
+
+				if (Input.Pressed("NavRight"))
+				{
+					DoRightMove();
+					_rightHeldSince = 0;
+					_rightLastRepeat = 0;
+				}
+				else if (Input.Down("NavRight")
+					&& _rightHeldSince > DPadRepeatDelay
+					&& _rightLastRepeat > DPadRepeatInterval)
+				{
+					DoRightMove();
+					_rightLastRepeat = 0;
+				}
+
+				// Vertical navigation only applies on the game-selection step, moves
+				// focus between the alphabet bar (top) and the game carousel (below).
+				if (_step == 1 && Input.Pressed("NavUp"))
+				{
+					_focusOnLetters = true;
+				}
+
+				if (_step == 1 && Input.Pressed("NavDown"))
+				{
+					var filteredGames = GetFilteredGames();
+
+					if (filteredGames.Count > 0)
+					{
+						_focusOnLetters = false;
+					}
+				}
+
+				if (Input.Pressed("Accept"))
+				{
+					if (_step == 0)
+						ConfirmBios();
+					else if (_step == 1)
+					{
+						// On the letter row, Cross drops focus to the carousel (the
+						// filter is already applied as soon as DPad-Left/Right lands
+						// on a letter). On the carousel, Cross launches the game.
+						if (_focusOnLetters) _focusOnLetters = false;
+						else OnGameCardClick(_gameIndex);
+					}
+				}
+
+				if (Input.Pressed("Refresh"))
+				{
+					_ = RefreshLibraryAsync();
+				}
+				
+				if (Input.Pressed("Settings"))
+				{
+					OpenSettings();
+				}
+
+				if (Input.Pressed("Infos"))
+				{
+					OpenInfos();
+				}
+
+				if (Input.Pressed("Bios"))
+				{
+					if (_step == 1)
+						LaunchBiosOnly();
+				}
+
+				if (Input.Pressed("Back"))
+				{
+					GoBack();
+				}
+			}
+		}
+	}
+	
+	
+	// Settings panel is mouse-driven (its own X + click-outside); Circle backs out
+	// to the pause menu for controller / keyboard users.
+	private void HandleSettingsInput()
+	{
+		if (Input.Pressed("Back")) { CloseSettings(); return; }
+
+		// Forward DPad / Cross / L1 / R1 to the embedded Settings panel so a
+		// controller can navigate it (it focuses its first control by default).
+		_settingsPanel?.HandleControllerInput();
+	}
+
+	// Infos is a read-only panel, Back (or another Infos press) closes it.
+	private void HandleInfosInput()
+	{
+		if (Input.Pressed("Back")) CloseInfos();
+	}
+
+	protected override int BuildHash() => System.HashCode.Combine(Time.NowDouble);
+
+	// Carousel position class
+
+	private string GetPosClass(int offset) => offset switch
+	{
+		0 => "blade-center",
+		1 => "blade-near-right",
+		-1 => "blade-near-left",
+		2 => "blade-far-right",
+		-2 => "blade-far-left",
+		_ => offset > 0 ? "blade-out-right" : "blade-out-left"
+	};
+
+	// Navigation
+
+	private void BiosPrev()
+	{
+		if (_biosIndex > 0)
+		{
+			_biosIndex--;
+			
+			Panel.PlaySound("ui.button.press");
+		}
+	}
+	
+	private void BiosNext()
+	{
+		int c = EmulatorComponent.Current?.AvailableBios.Count ?? 0;
+		
+		if (_biosIndex < c - 1)
+		{
+			_biosIndex++;
+			
+			Panel.PlaySound("ui.button.press");
+		}
+	}
+
+	private void GamePrev()
+	{
+		if (_gameIndex > 0)
+		{
+			_gameIndex--;
+			
+			Panel.PlaySound("ui.button.press");
+		}
+	}
+	
+	private void GameNext()
+	{
+		int c = GetFilteredGames().Count;
+		
+		if (_gameIndex < c - 1)
+		{
+			_gameIndex++;
+			
+			Panel.PlaySound("ui.button.press");
+		}
+	}
+
+	// Single dispatch points for DPad Left/Right so both the initial-press
+	// path and the hold-to-repeat path agree on what "one move" means in the
+	// current context (BIOS list / alphabet bar / game carousel).
+	private void DoLeftMove()
+	{
+		if (_step == 0)
+			BiosPrev();
+		else if (_step == 1)
+		{
+			if (_focusOnLetters) LetterPrev();
+			else GamePrev();
+		}
+	}
+
+	private void DoRightMove()
+	{
+		if (_step == 0)
+			BiosNext();
+		else if (_step == 1)
+		{
+			if (_focusOnLetters) LetterNext();
+			else GameNext();
+		}
+	}
+
+	// --- Alphabet filter ---
+
+	/// <summary>
+	/// Build the visible game list based on _letterIndex. 0 = ALL, 1..26 = A..Z,
+	/// matched against the first A-Z letter found ANYWHERE in DisplayName (not just
+	/// position 0). This lets titles that START with a number/symbol, e.g.
+	/// "007 Tomorrow Never Dies", file under their first real letter ('T') instead
+	/// of being reachable only via ALL. Names with no A-Z letter at all still only
+	/// appear under ALL.
+	/// </summary>
+	private List<EmulatorComponent.LaunchEntry> GetFilteredGames()
+	{
+		var all = EmulatorComponent.Current?.AvailableGames;
+		if (all == null || all.Count == 0) return new();
+		if (_letterIndex == 0) return all.ToList();
+
+		char target = (char)('A' + _letterIndex - 1);
+		var result = new List<EmulatorComponent.LaunchEntry>(all.Count);
+		for (int i = 0; i < all.Count; i++)
+		{
+			var entry = all[i];
+			if (FirstFilterLetter(entry.DisplayName) == target)
+				result.Add(entry);
+		}
+		return result;
+	}
+
+	/// <summary>
+	/// First A-Z character in <paramref name="name"/> (uppercased), skipping any
+	/// leading numbers / spaces / symbols; '\0' if the name has no A-Z letter at all.
+	/// So "007 Tomorrow Never Dies" -> 'T', "FIFA 99" -> 'F'.
+	/// </summary>
+	private static char FirstFilterLetter(string name)
+	{
+		if (string.IsNullOrEmpty(name)) return '\0';
+
+		for (int i = 0; i < name.Length; i++)
+		{
+			char c = char.ToUpperInvariant(name[i]);
+			if (c >= 'A' && c <= 'Z')
+				return c;
+		}
+
+		return '\0';
+	}
+
+	/// <summary>
+	/// The launch entry currently centered in the carousel, the BIOS on step 0,
+	/// or the (filtered) game on step 1. Drives the title caption under the
+	/// carousel and the Infos panel. Null if the list is empty / index invalid.
+	/// </summary>
+	private EmulatorComponent.LaunchEntry GetCurrentEntry()
+	{
+		var emu = EmulatorComponent.Current;
+		if (!emu.IsValid()) return null;
+
+		if (_step == 0)
+		{
+			var bios = emu.AvailableBios;
+			return (_biosIndex >= 0 && _biosIndex < bios.Count) ? bios[_biosIndex] : null;
+		}
+
+		var games = GetFilteredGames();
+		return (_gameIndex >= 0 && _gameIndex < games.Count) ? games[_gameIndex] : null;
+	}
+
+	private string GetCurrentLetterLabel()
+	{
+		if (_letterIndex == 0) return "ALL";
+		return ((char)('A' + _letterIndex - 1)).ToString();
+	}
+
+	/// <summary>
+	/// Click handler for an alphabet letter button. Resets _gameIndex to 0 so
+	/// the carousel starts at the first matching game in the new filter.
+	/// </summary>
+	private void SelectLetter(int idx)
+	{
+		if (idx < 0 || idx > 26) return;
+		if (_letterIndex == idx) return;
+		_letterIndex = idx;
+		_gameIndex = 0;
+		
+		Panel.PlaySound("ui.button.press");
+	}
+
+	private void LetterPrev()
+	{
+		if (_letterIndex > 0)
+		{
+			_letterIndex--;
+			_gameIndex = 0;
+			
+			Panel.PlaySound("ui.button.press");
+		}
+	}
+
+	private void LetterNext()
+	{
+		if (_letterIndex < 26)
+		{
+			_letterIndex++;
+			_gameIndex = 0;
+			
+			Panel.PlaySound("ui.button.press");
+		}
+	}
+
+	// Card clicks
+
+	private void OnBiosCardClick(int i)
+	{
+		// Clicking a non-center card scrolls to it; clicking the already-centered
+		// card continues to game selection, same double-click UX as the game cards
+		// (OnGameCardClick), so mouse users don't have to reach for the Continue
+		// button. ConfirmBios guards the index, and cards only render when the
+		// list is populated and not refreshing, so this is safe to call here.
+		if (i != _biosIndex) { _biosIndex = i; return; }
+		ConfirmBios();
+	}
+
+	private void OnGameCardClick(int i)
+	{
+		if (i != _gameIndex) { _gameIndex = i; return; }
+		// Double-click center card -> launch
+		if (CanLaunchGame()) LaunchSelectedGame();
+	}
+
+	// Actions
+
+	private void ConfirmBios()
+	{
+		var bios = EmulatorComponent.Current?.AvailableBios;
+		if (bios == null || _biosIndex >= bios.Count) return;
+		_selectedBiosPath = bios[_biosIndex].Path;
+		_step = 1;
+	}
+
+	private void GoBack()
+	{
+		// Reset alphabet filter when returning to BIOS selection so the next
+		// visit to the game screen starts on "ALL" with carousel focus.
+		_step = 0;
+		_letterIndex = 0;
+		_focusOnLetters = false;
+		_gameIndex = 0;
+	}
+
+	private void LaunchBiosOnly()
+	{
+		if (string.IsNullOrWhiteSpace(_selectedBiosPath)) return;
+		EmulatorComponent.Current?.LaunchSelection(_selectedBiosPath, null);
+	}
+
+	private void LaunchSelectedGame()
+	{
+		// LaunchSelection uses the FILTERED list, _gameIndex is an index into
+		// whatever set the carousel is currently displaying, not the global
+		// AvailableGames list. Without this, picking letter "R" then pressing
+		// Cross at carousel position 0 would try to launch the first game
+		// alphabetically (an "A" game) instead of the first R-game.
+		var games = GetFilteredGames();
+		if (_gameIndex < 0 || _gameIndex >= games.Count) return;
+		if (string.IsNullOrWhiteSpace(_selectedBiosPath)) return;
+		EmulatorComponent.Current?.LaunchSelection(_selectedBiosPath, games[_gameIndex].Path);
+	}
+
+	private async Task RefreshLibraryAsync()
+	{
+		var emu = EmulatorComponent.Current;
+		if (!emu.IsValid()) return;
+		if (_step == 0)
+			await emu.RefreshBiosLibraryAsync();
+		else
+			await emu.RefreshGameLibraryAsync();
+	}
+
+	// Helpers
+
+	private bool CanLaunchBios()
+		=> EmulatorComponent.Current.IsValid()
+		&& !EmulatorComponent.Current.IsLaunching
+		&& !string.IsNullOrWhiteSpace(_selectedBiosPath);
+
+	private bool CanLaunchGame()
+	{
+		// Same filtered-list rule as LaunchSelectedGame: _gameIndex is local to
+		// the currently visible (filtered) carousel, not the global list.
+		var games = GetFilteredGames();
+		return EmulatorComponent.Current.IsValid()
+			&& !EmulatorComponent.Current.IsLaunching
+			&& !string.IsNullOrWhiteSpace(_selectedBiosPath)
+			&& _gameIndex >= 0 && _gameIndex < games.Count;
+	}
+
+	// ===== Settings modal, see Code/UI/Panels/Settings.razor =====
+	// EmulatorPanel owns only the open/close toggle + the launcher button; all
+	// the controls live in the embedded <Settings/> child panel.
+	private bool _settingsOpen;
+	private Settings _settingsPanel;
+
+	private void OpenSettings()  => _settingsOpen = true;
+	private void CloseSettings() => _settingsOpen = false;
+
+	// Infos panel (R3), shows the selected ROM's Name / Serial / Path inline,
+	// swapped in over the carousel just like Settings.
+	private bool _infosOpen;
+	private void OpenInfos()  => _infosOpen = true;
+	private void CloseInfos() => _infosOpen = false;
+
+	private string GetSelectedBiosName()
+	{
+		var bios = EmulatorComponent.Current?.AvailableBios;
+		if (bios == null) return "None";
+		var entry = bios.FirstOrDefault(x => string.Equals(x.Path, _selectedBiosPath, StringComparison.OrdinalIgnoreCase));
+		return entry?.DisplayName ?? "None";
+	}
+}

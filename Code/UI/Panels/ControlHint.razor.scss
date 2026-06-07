@@ -1,0 +1,28 @@
+/* -----------------------------------------------------------
+   ControlHint - input glyph(s) + a label. Used in a row in the
+   EmulatorPanel launcher's bottom-right corner.
+   ----------------------------------------------------------- */
+
+ControlHint
+{
+	flex-direction: row;
+	align-items: center;
+	gap: 4px;
+
+	font-family: Poppins;
+
+	.hint-glyph
+	{
+		width: 32px;
+		height: 32px;
+	}
+
+	.hint-label
+	{
+		color: #f0ead8cc;
+		font-size: 16px;
+		font-weight: 600;
+		letter-spacing: 0.02em;
+		margin-right: 6px;
+	}
+}

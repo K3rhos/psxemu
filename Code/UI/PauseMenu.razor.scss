@@ -1,0 +1,275 @@
+/* -----------------------------------------------------------
+   PauseMenu - full-screen overlay shown over the running emulator
+   when the user presses Pause (Tab / Guide). Mirrors the launcher
+   (EmulatorPanel.razor.scss): a blurred/transparent view of the
+   paused game behind a top-bar -> content -> action-bar frame, with
+   the menu list top-left and control hints bottom-right.
+   ----------------------------------------------------------- */
+
+PauseMenu
+{
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+
+	width: 100%;
+	height: 100%;
+
+	/* Root stays click-through so unpaused gameplay receives input
+	   normally; .pause-shell re-enables pointer events when paused. */
+	pointer-events: none;
+
+	font-family: Poppins;
+	color: #f0ead8;
+
+	z-index: 999;
+}
+
+/* Material Icons. s&box scopes SCSS per-component, so re-declare the
+   font-family here for icons inside the pause menu. */
+.material-icon
+{
+	font-family: Material Icons;
+	font-size: 22px;
+	line-height: 22px;
+	font-weight: 400;
+	text-transform: none;
+}
+
+/* -----------------------------------------------------------
+   Shell & backdrop
+   ----------------------------------------------------------- */
+
+.pause-shell
+{
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+
+	width: 100%;
+	height: 100%;
+
+	flex-direction: column;
+	overflow: hidden;
+
+	pointer-events: all;
+}
+
+/* Transparent, blurred dimming of the paused game behind the menu.
+   The backdrop-filter keeps the game faintly visible (blurred) so the
+   overlay reads as "paused", not a hard cut to a solid screen. */
+.pause-backdrop
+{
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+
+	width: 100%;
+	height: 100%;
+
+	background-image: linear-gradient(175deg, rgba(13, 17, 32, 0.9) 0%, rgba(8, 11, 19, 0.9) 55%, rgba(6, 8, 16, 0.9) 100%);
+	backdrop-filter: blur(20px);
+}
+
+.pause-frame
+{
+	position: relative;
+	flex-direction: column;
+	width: 100%;
+	height: 100%;
+	z-index: 1;
+}
+
+/* -----------------------------------------------------------
+   Top bar
+   ----------------------------------------------------------- */
+
+.top-bar
+{
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+	padding: 18px 20px;
+	background-color: #00000028;
+	border-bottom: 1px solid #ffffff14;
+}
+
+.top-bar-brand
+{
+	flex-direction: row;
+	align-items: center;
+	gap: 12px;
+
+	.brand-icon
+	{
+		font-size: 26px;
+		line-height: 26px;
+		color: #ffcc7a;
+	}
+}
+
+.brand-name
+{
+	font-size: 22px;
+	font-weight: 800;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: #f7f1e7;
+}
+
+.top-bar-game
+{
+	font-size: 13px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	color: #f0ead878;
+
+	max-width: 420px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* -----------------------------------------------------------
+   Content slot (fills the space between top-bar and action-bar).
+   Hosts the menu list, the save/load dialog, or when Settings is
+   open, the inline <Settings> panel (which brings its own layout).
+   ----------------------------------------------------------- */
+
+.pause-content
+{
+	flex-grow: 1;
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: flex-start;
+	padding: 36px 48px;
+	min-height: 0;
+}
+
+/* Section header */
+.section-header
+{
+	flex-direction: column;
+	margin-bottom: 22px;
+}
+
+.section-step-tag
+{
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.38em;
+	text-transform: uppercase;
+	color: #ffcc7a;
+	margin-bottom: 6px;
+}
+
+.section-title
+{
+	font-size: 36px;
+	font-weight: 800;
+	line-height: 40px;
+	color: #f5efe3;
+	margin: 0;
+}
+
+/* -----------------------------------------------------------
+   Menu list - vertical column of options, top-left.
+   ----------------------------------------------------------- */
+
+.pause-menu-list
+{
+	flex-direction: column;
+	align-items: stretch;
+	gap: 8px;
+	width: 440px;
+}
+
+/* One row in the menu. .focus is the DPad-selected state (outline ring
+   + brighter fill); :hover handles the mouse case. */
+.pause-btn
+{
+	flex-direction: row;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 16px;
+
+	height: 54px;
+	padding: 0 20px;
+
+	border-radius: 10px;
+	border: 1px solid #ffffff1e;
+	background-color: #ffffff0a;
+
+	font-size: 16px;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	color: #f0ead8cc;
+
+	cursor: pointer;
+	transition: all 0.1s ease-out;
+
+	.pause-btn-icon
+	{
+		font-size: 24px;
+		line-height: 24px;
+		color: #c8bfa8;
+	}
+
+	&:hover
+	{
+		background-color: #ffffff18;
+		border-color: #ffffff36;
+		color: #f0ead8;
+		transform: translateX(2px);
+
+		.pause-btn-icon { color: #f0ead8; }
+
+		sound-in: ui.button.over;
+	}
+
+	&.focus
+	{
+		background-color: #f0ead818;
+		border-color: #f0ead8aa;
+		color: #f0ead8;
+		box-shadow: 0 0 0 2px #f0ead84a, 0 0 18px #f0ead83a;
+
+		sound-in: ui.button.over;
+
+		.pause-btn-icon { color: #f0ead8; }
+	}
+
+	&:active
+	{
+		sound-in: ui.button.press;
+	}
+}
+
+/* -----------------------------------------------------------
+   Action bar - control hints in the bottom-right corner.
+   ----------------------------------------------------------- */
+
+.action-bar
+{
+	flex-direction: row;
+	align-items: center;
+	justify-content: flex-end;
+	height: 76px;
+	min-height: 76px;
+	padding: 0 32px;
+	border-top: 1px solid #ffffff0c;
+	background-color: #00000028;
+}
+
+.control-hints
+{
+	flex-direction: row;
+	align-items: center;
+	gap: 16px;
+}

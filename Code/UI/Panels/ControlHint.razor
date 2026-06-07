@@ -1,0 +1,53 @@
+@using System
+@using System.Linq
+@using Sandbox
+@using Sandbox.UI
+
+@namespace PSXEmu
+
+@inherits Panel
+
+<root>
+
+	@foreach (var a in _actions)
+	{
+		<Image class="hint-glyph" />
+	}
+
+	<Label class="hint-label">@StringValue</Label>
+</root>
+
+@code
+{
+	private string[] _actions = [];
+	
+	public override void SetProperty(string name, string value)
+	{
+		base.SetProperty(name, value);
+
+		if (name == "name")
+			_actions = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+	}
+	
+	public override void Tick()
+	{
+		int i = 0;
+
+		foreach (var img in Children.OfType<Image>())
+		{
+			if (i >= _actions.Length)
+				break;
+
+			Texture tex = Input.GetGlyph(_actions[i], InputGlyphSize.Medium, GlyphStyle.Light.WithNeutralColorABXY());
+			if (tex.IsValid())
+			{
+				img.Texture = tex;
+				img.MarkRenderDirty();
+			}
+
+			i++;
+		}
+	}
+	
+	protected override int BuildHash() => HashCode.Combine(string.Join(",", _actions), StringValue);
+}

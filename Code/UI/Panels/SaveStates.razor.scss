@@ -1,0 +1,430 @@
+/* -----------------------------------------------------------
+   SaveStates - embedded child Panel (like Settings.razor). Fills
+   the host's content area (PauseMenu) with the same two-column
+   chrome as the Settings page: header on top, a context/new-save
+   sidebar on the left, the existing-saves list on the right.
+   ----------------------------------------------------------- */
+
+SaveStates
+{
+	/* Inline panel - fills the host's content slot, grows rather than centering. */
+	position: relative;
+
+	flex-grow: 1;
+	flex-direction: column;
+	align-items: stretch;
+
+	width: 100%;
+	min-height: 0;
+
+	pointer-events: all;
+
+	font-family: Poppins;
+	color: #f0ead8;
+}
+
+/* s&box scopes SCSS per-component, so re-declare the icon font here. */
+.material-icon
+{
+	font-family: Material Icons;
+	font-size: 22px;
+	line-height: 22px;
+	font-weight: 400;
+	text-transform: none;
+}
+
+.savestate-panel
+{
+	position: relative;
+
+	flex-grow: 1;
+	flex-direction: column;
+	align-items: stretch;
+
+	width: 100%;
+	min-height: 0;
+
+	overflow: hidden;
+}
+
+/* -----------------------------------------------------------
+   Header - matches the Settings header.
+   ----------------------------------------------------------- */
+
+.savestate-header
+{
+	flex-direction: row;
+	align-items: center;
+	gap: 12px;
+
+	padding: 18px 20px;
+	border-bottom: 1px solid #ffffff14;
+
+	.savestate-head-icon
+	{
+		font-size: 26px;
+		line-height: 26px;
+		color: #ffcc7a;
+	}
+
+	.savestate-head-title
+	{
+		flex-grow: 1;
+		font-size: 22px;
+		font-weight: 800;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: #f7f1e7;
+	}
+}
+
+.savestate-close
+{
+	align-items: center;
+	justify-content: center;
+
+	width: 32px;
+	height: 32px;
+
+	border-radius: 8px;
+	border: 1px solid #ffffff1e;
+	background-color: #ffffff0a;
+	color: #c8bfa8;
+
+	cursor: pointer;
+	transition: all 0.1s ease-out;
+
+	.material-icon { font-size: 20px; line-height: 20px; }
+
+	&:hover
+	{
+		background-color: #ff5a4422;
+		border-color: #ff7a5a66;
+		color: #ffd9cf;
+
+		sound-in: ui.button.over;
+	}
+
+	&:active
+	{
+		sound-in: ui.button.press;
+	}
+}
+
+/* -----------------------------------------------------------
+   Body - two columns (sidebar + content), like Settings.
+   ----------------------------------------------------------- */
+
+.savestate-body
+{
+	flex-direction: row;
+	flex-grow: 1;
+	align-items: stretch;
+	min-height: 0;
+	overflow: hidden;
+}
+
+/* Left column: game context + new-save form (Save mode). */
+.savestate-side
+{
+	flex-direction: column;
+	align-items: stretch;
+	gap: 14px;
+
+	width: 480px;
+	padding: 18px;
+
+	border-right: 1px solid #ffffff14;
+	background-color: #00000028;
+}
+
+.savestate-game-card
+{
+	flex-direction: row;
+	align-items: center;
+	gap: 14px;
+
+	padding: 16px;
+
+	border-radius: 10px;
+	border: 1px solid #ffffff14;
+	background-color: #ffffff08;
+
+	.savestate-game-icon
+	{
+		font-size: 34px;
+		line-height: 34px;
+		color: #ffcc7a;
+	}
+}
+
+.savestate-game-text
+{
+	flex-direction: column;
+	flex-grow: 1;
+
+	.savestate-game-name
+	{
+		font-size: 18px;
+		font-weight: 700;
+		color: #f0ead8;
+
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		overflow: hidden;
+	}
+
+	.savestate-game-sub
+	{
+		font-size: 13px;
+		color: #f0ead868;
+	}
+}
+
+/* New-save form (Save mode only). */
+.savestate-form
+{
+	flex-direction: column;
+	align-items: stretch;
+	gap: 10px;
+
+	padding: 16px;
+
+	border-radius: 10px;
+	border: 1px solid #ffffff14;
+	background-color: #ffffff05;
+}
+
+.savestate-form-label
+{
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: #f0ead868;
+}
+
+.savestate-name-input
+{
+	height: 44px;
+	padding: 0 14px;
+
+	border-radius: 8px;
+	border: 1px solid #ffffff24;
+	background-color: #00000040;
+
+	font-family: Poppins;
+	font-size: 15px;
+	color: #f0ead8;
+
+	&:focus
+	{
+		border-color: #f0ead8aa;
+		box-shadow: 0 0 0 2px #f0ead844;
+	}
+}
+
+.savestate-save-btn
+{
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+
+	height: 46px;
+
+	border-radius: 8px;
+	border: 1px solid #9ed8a04a;
+	background-color: #5ec77822;
+
+	font-size: 15px;
+	font-weight: 700;
+	color: #d8f5dd;
+
+	cursor: pointer;
+	transition: all 0.1s ease-out;
+
+	.material-icon { font-size: 20px; line-height: 20px; color: #9ee6ad; }
+
+	&:hover
+	{
+		background-color: #5ec77836;
+		border-color: #9ed8a0aa;
+		color: #ffffff;
+
+		.material-icon { color: #c8ffd2; }
+
+		sound-in: ui.button.over;
+	}
+
+	&:active
+	{
+		sound-in: ui.button.press;
+	}
+}
+
+/* Inline status line (success = cream, error = red). */
+.savestate-status
+{
+	padding: 10px 12px;
+
+	border-radius: 8px;
+	font-size: 13px;
+	font-weight: 500;
+
+	&.ok
+	{
+		background-color: #5ec77818;
+		border: 1px solid #9ed8a03a;
+		color: #cdeccf;
+	}
+
+	&.error
+	{
+		background-color: #ff5a4418;
+		border: 1px solid #ff7a5a4a;
+		color: #ffd2c8;
+	}
+}
+
+/* -----------------------------------------------------------
+   Right column: the list of saves (rows mirror Settings' set-row).
+   ----------------------------------------------------------- */
+
+.savestate-content
+{
+	flex-direction: column;
+	flex-grow: 1;
+	align-items: stretch;
+
+	padding: 16px;
+	overflow-x: hidden;
+	overflow-y: scroll;
+}
+
+.savestate-list-label
+{
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: #f0ead868;
+	padding: 4px 6px 12px;
+}
+
+.savestate-empty
+{
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+
+	padding: 60px 0;
+	color: #f0ead850;
+
+	.material-icon { font-size: 40px; line-height: 40px; }
+	span { font-size: 14px; }
+}
+
+.savestate-row
+{
+	flex-direction: row;
+	align-items: center;
+	gap: 16px;
+
+	min-height: 72px;
+	padding: 12px 14px;
+
+	border-bottom: 1px solid #ffffff0c;
+
+	.savestate-row-icon
+	{
+		font-size: 24px;
+		line-height: 24px;
+		color: #c8bfa8aa;
+	}
+
+	&.focus
+	{
+		background-color: #f0ead812;
+	}
+}
+
+.savestate-row-info
+{
+	flex-direction: column;
+	flex-grow: 1;
+
+	.savestate-row-name
+	{
+		font-size: 18px;
+		font-weight: 600;
+		color: #f0ead8;
+
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		overflow: hidden;
+	}
+}
+
+.savestate-row-btn
+{
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+
+	height: 36px;
+	min-width: 36px;
+	padding: 0 14px;
+
+	border-radius: 8px;
+	border: 1px solid #ffffff1e;
+	background-color: #ffffff0a;
+
+	font-size: 14px;
+	font-weight: 600;
+	color: #f0ead8cc;
+
+	cursor: pointer;
+	transition: all 0.1s ease-out;
+
+	.material-icon { font-size: 18px; line-height: 18px; }
+
+	&:hover
+	{
+		background-color: #ffffff1c;
+		border-color: #ffffff3a;
+		color: #f0ead8;
+
+		sound-in: ui.button.over;
+	}
+
+	&:active
+	{
+		sound-in: ui.button.press;
+	}
+
+	&.load
+	{
+		border-color: #9ed8a04a;
+		background-color: #5ec77822;
+		color: #d8f5dd;
+
+		.material-icon { color: #9ee6ad; }
+
+		&:hover
+		{
+			background-color: #5ec77836;
+			border-color: #9ed8a0aa;
+			color: #ffffff;
+		}
+	}
+
+	&.delete:hover
+	{
+		background-color: #ff5a4422;
+		border-color: #ff7a5a66;
+		color: #ffd9cf;
+	}
+}

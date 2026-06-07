@@ -1,0 +1,520 @@
+@using System
+@using Sandbox.UI
+
+@namespace PSXEmu
+
+@inherits Panel
+
+<root>
+
+	@if (Emu.IsValid())
+	{
+		<div class="settings-panel">
+
+			<div class="settings-header">
+
+				<span class="material-icon settings-head-icon">tune</span>
+				<span class="settings-head-title">Settings</span>
+
+				<button class="settings-close" onclick="@Close">
+					<span class="material-icon">arrow_back</span>
+				</button>
+			</div>
+
+			<div class="settings-body">
+
+				<div class="settings-cats">
+
+					@for (int i = 0; i < _categories.Length; i++)
+					{
+						int ci = i;
+
+						<button class="settings-cat @( _activeCat == ci ? "selected" : "" )" onclick="@( () => SelectCategory( ci ) )">
+
+							<span class="material-icon">@_categories[ci].Icon</span>
+							<span class="settings-cat-label">@_categories[ci].Name</span>
+						</button>
+					}
+
+					<!-- Footer action (bottom-left): opens s&box's own settings overlay
+					     on the Video tab, where the frame-rate limiter / vsync live. -->
+					<button class="settings-external" onclick="@OpenSandboxSettings">
+
+						<span class="material-icon">open_in_new</span>
+						<span class="settings-external-label">S&box Settings</span>
+					</button>
+				</div>
+
+				<div class="settings-content">
+
+					@{ var cat = _categories[_activeCat].Name; int r = 0; }
+
+					@if (cat == "Rendering")
+					{
+						<div class="set-row @( FocusCls( r++ ) )">
+							<div class="set-info">
+								<span class="set-label">GPU Rasterizer</span>
+								<span class="set-hint">Does the rasterization run on the GPU?</span>
+							</div>
+							<button class="set-switch @( Emu.GPURasterizer ? "on" : "" )" onclick="@( () => ToggleBool( () => Emu.GPURasterizer, v => Emu.GPURasterizer = v ) )">
+								<span class="set-switch-knob"></span>
+							</button>
+						</div>
+
+						<div class="set-row @( FocusCls( r++ ) ) @( Emu.GPURasterizer ? "" : "disabled" ) @( _openCombo == "scale" ? "combo-open" : "" )">
+							<div class="set-info">
+								<span class="set-label">Internal Resolution</span>
+								<span class="set-hint">GPU-rasterizer upscale factor</span>
+							</div>
+							<div class="set-combo">
+								<button class="set-combo-head" onclick="@( () => ToggleCombo( "scale" ) )">
+									<span>@ScaleLabel(Emu.GpuRasterScale)</span>
+									<span class="material-icon">@( _openCombo == "scale" ? "expand_less" : "expand_more" )</span>
+								</button>
+								@if (_openCombo == "scale" && Emu.GPURasterizer)
+								{
+									<div class="set-combo-list">
+										@foreach (var opt in _scaleOptions)
+										{
+											int sv = opt.Scale;
+											<button class="set-combo-opt @( Emu.GpuRasterScale == sv ? "sel" : "" )" onclick="@( () => SetRasterScale( sv ) )">@opt.Label</button>
+										}
+									</div>
+								}
+							</div>
+						</div>
+
+						if (Emu.GPURasterizer)
+						{
+							<div class="set-notice">
+								<span class="material-icon set-notice-icon">warning</span>
+								
+								<span class="set-notice-text">
+									<span>Using GPU rasterization requires unlocked framerate (min. 240+fps) and vsync disabled to run properly. Make sure to check your</span>
+									<button class="set-notice-btn" onclick="@OpenSandboxSettings">S&box Settings</button>
+									<span>if that's not the case already.</span>
+								</span>
+							</div>	
+						}
+					}
+					else if (cat == "Post Processing")
+					{
+						<div class="set-row @( FocusCls( r++ ) )">
+							<div class="set-info">
+								<span class="set-label">Display Filter</span>
+								<span class="set-hint">Texture sampling</span>
+							</div>
+							<div class="set-combo">
+								<button class="set-combo-head" onclick="@( () => ToggleCombo( "filter" ) )">
+									<span>@FilterLabel( Emu.DisplayFilter )</span>
+									<span class="material-icon">@( _openCombo == "filter" ? "expand_less" : "expand_more" )</span>
+								</button>
+								@if (_openCombo == "filter")
+								{
+									<div class="set-combo-list">
+										<button class="set-combo-opt @( Emu.DisplayFilter == PsxDisplayFilter.Nearest ? "sel" : "" )" onclick="@( () => SetFilter( PsxDisplayFilter.Nearest ) )">Nearest (Sharp)</button>
+										<button class="set-combo-opt @( Emu.DisplayFilter == PsxDisplayFilter.Bilinear ? "sel" : "" )" onclick="@( () => SetFilter( PsxDisplayFilter.Bilinear ) )">Bilinear (Smooth)</button>
+									</div>
+								}
+							</div>
+						</div>
+
+						<div class="set-row @( FocusCls( r++ ) )">
+							<div class="set-info">
+								<span class="set-label">Scanline Strength</span>
+								<span class="set-hint">0 - 1</span>
+							</div>
+							<div class="set-stepper">
+								<button class="set-step" onclick="@( () => Step( () => Emu.ScanlineStrength, v => Emu.ScanlineStrength = v, 0f, 1f, -0.05f ) )"><span class="material-icon">remove</span></button>
+								<div class="set-bar">
+									<div class="set-bar-fill" style="width: @(Pct( Emu.ScanlineStrength, 0f, 1f ))%;"></div>
+									<span class="set-bar-val">@Num( Emu.ScanlineStrength )</span>
+								</div>
+								<button class="set-step" onclick="@( () => Step( () => Emu.ScanlineStrength, v => Emu.ScanlineStrength = v, 0f, 1f, 0.05f ) )"><span class="material-icon">add</span></button>
+							</div>
+						</div>
+
+						<div class="set-row @( FocusCls( r++ ) )">
+							<div class="set-info">
+								<span class="set-label">Scanline Sharpness</span>
+								<span class="set-hint">0.5 - 8</span>
+							</div>
+							<div class="set-stepper">
+								<button class="set-step" onclick="@( () => Step( () => Emu.ScanlineSharpness, v => Emu.ScanlineSharpness = v, 0.5f, 8f, -0.25f ) )"><span class="material-icon">remove</span></button>
+								<div class="set-bar">
+									<div class="set-bar-fill" style="width: @(Pct( Emu.ScanlineSharpness, 0.5f, 8f ))%;"></div>
+									<span class="set-bar-val">@Num( Emu.ScanlineSharpness )</span>
+								</div>
+								<button class="set-step" onclick="@( () => Step( () => Emu.ScanlineSharpness, v => Emu.ScanlineSharpness = v, 0.5f, 8f, 0.25f ) )"><span class="material-icon">add</span></button>
+							</div>
+						</div>
+
+						<div class="set-row @( FocusCls( r++ ) )">
+							<div class="set-info">
+								<span class="set-label">Scanline Frequency</span>
+								<span class="set-hint">0.5 by default (0 = disabled)</span>
+							</div>
+							<div class="set-stepper">
+								<button class="set-step" onclick="@( () => Step( () => Emu.ScanlineFrequency, v => Emu.ScanlineFrequency = v, 0f, 8f, -0.25f ) )"><span class="material-icon">remove</span></button>
+								<div class="set-bar">
+									<div class="set-bar-fill" style="width: @(Pct( Emu.ScanlineFrequency, 0f, 8f ))%;"></div>
+									<span class="set-bar-val">@Num( Emu.ScanlineFrequency )</span>
+								</div>
+								<button class="set-step" onclick="@( () => Step( () => Emu.ScanlineFrequency, v => Emu.ScanlineFrequency = v, 0f, 8f, 0.25f ) )"><span class="material-icon">add</span></button>
+							</div>
+						</div>
+
+						<div class="set-row @( FocusCls( r++ ) )">
+							<div class="set-info">
+								<span class="set-label">Phosphor Mask Strength</span>
+								<span class="set-hint">0 - 1</span>
+							</div>
+							<div class="set-stepper">
+								<button class="set-step" onclick="@( () => Step( () => Emu.PhosphorMaskStrength, v => Emu.PhosphorMaskStrength = v, 0f, 1f, -0.05f ) )"><span class="material-icon">remove</span></button>
+								<div class="set-bar">
+									<div class="set-bar-fill" style="width: @(Pct( Emu.PhosphorMaskStrength, 0f, 1f ))%;"></div>
+									<span class="set-bar-val">@Num( Emu.PhosphorMaskStrength )</span>
+								</div>
+								<button class="set-step" onclick="@( () => Step( () => Emu.PhosphorMaskStrength, v => Emu.PhosphorMaskStrength = v, 0f, 1f, 0.05f ) )"><span class="material-icon">add</span></button>
+							</div>
+						</div>
+
+						<div class="set-row @( FocusCls( r++ ) )">
+							<div class="set-info">
+								<span class="set-label">CRT Color Boost</span>
+								<span class="set-hint">1 - 2</span>
+							</div>
+							<div class="set-stepper">
+								<button class="set-step" onclick="@( () => Step( () => Emu.CrtColorBoost, v => Emu.CrtColorBoost = v, 1f, 2f, -0.05f ) )"><span class="material-icon">remove</span></button>
+								<div class="set-bar">
+									<div class="set-bar-fill" style="width: @(Pct( Emu.CrtColorBoost, 1f, 2f ))%;"></div>
+									<span class="set-bar-val">@Num( Emu.CrtColorBoost )</span>
+								</div>
+								<button class="set-step" onclick="@( () => Step( () => Emu.CrtColorBoost, v => Emu.CrtColorBoost = v, 1f, 2f, 0.05f ) )"><span class="material-icon">add</span></button>
+							</div>
+						</div>
+					}
+					else if (cat == "Debug")
+					{
+						<div class="set-row @( FocusCls( r++ ) )">
+							<div class="set-info">
+								<span class="set-label">Performance Overlay</span>
+								<span class="set-hint">Show the FPS / timing readout (top-left)</span>
+							</div>
+							<button class="set-switch @( Emu.ShowPerformanceOverlay ? "on" : "" )" onclick="@( () => ToggleBool( () => Emu.ShowPerformanceOverlay, v => Emu.ShowPerformanceOverlay = v ) )">
+								<span class="set-switch-knob"></span>
+							</button>
+						</div>
+
+						<div class="set-row @( FocusCls( r++ ) )">
+							<div class="set-info">
+								<span class="set-label">Log Level</span>
+								<span class="set-hint">Console output verbosity</span>
+							</div>
+							<div class="set-combo">
+								<button class="set-combo-head" onclick="@( () => ToggleCombo( "log" ) )">
+									<span>@LogLevelLabel( Emu.LogLevel )</span>
+									<span class="material-icon">@( _openCombo == "log" ? "expand_less" : "expand_more" )</span>
+								</button>
+								@if (_openCombo == "log")
+								{
+									<div class="set-combo-list">
+										<button class="set-combo-opt @( Emu.LogLevel == EmulatorComponent.LogLevels.None ? "sel" : "" )" onclick="@( () => SetLogLevel( EmulatorComponent.LogLevels.None ) )">None</button>
+										<button class="set-combo-opt @( Emu.LogLevel == EmulatorComponent.LogLevels.TTYOnly ? "sel" : "" )" onclick="@( () => SetLogLevel( EmulatorComponent.LogLevels.TTYOnly ) )">TTY Only</button>
+										<button class="set-combo-opt @( Emu.LogLevel == EmulatorComponent.LogLevels.All ? "sel" : "" )" onclick="@( () => SetLogLevel( EmulatorComponent.LogLevels.All ) )">All</button>
+									</div>
+								}
+							</div>
+						</div>
+					}
+					else if (cat == "Services")
+					{
+						<div class="set-row @( FocusCls( r++ ) )">
+							<div class="set-info">
+								<span class="set-label">Fetch Game Covers</span>
+								<span class="set-hint">Streaming cover art for detected games (No files are getting downloaded on disk)</span>
+							</div>
+							<button class="set-switch @( Emu.FetchGameCovers ? "on" : "" )" onclick="@ToggleFetchCovers">
+								<span class="set-switch-knob"></span>
+							</button>
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	}
+</root>
+
+@code
+{
+	public Action OnClose { get; set; }
+
+	private int _activeCat;
+	private string _openCombo;
+	private int _focus;
+
+	private EmulatorComponent Emu => EmulatorComponent.Current;
+
+	private record SettingsCat(string Name, string Icon);
+
+	private readonly SettingsCat[] _categories =
+	[
+		new("Rendering", "grid_view"),
+		new("Post Processing", "auto_awesome"),
+		new("Debug", "bug_report"),
+		new("Services", "cloud")
+	];
+
+	// GPU-rasterizer upscale factors, each paired with a display-resolution hint
+	// (internal vertical res = factor x 240p native). Ordered: the combo list and
+	// the prev/next cycling both rely on this order.
+	private readonly (int Scale, string Label)[] _scaleOptions =
+	[
+		(1, "1x (Native 240p)"),
+		(2, "2x"),
+		(3, "3x (720p)"),
+		(4, "4x"),
+		(5, "5x (1080p)"),
+		(6, "6x (1440p)"),
+		(7, "7x"),
+		(8, "8x"),
+		(9, "9x (2160p)")
+	];
+
+	private void Close() => OnClose?.Invoke();
+
+	// Footer button: Opens s&box's own settings overlay on the Video tab, where the
+	// frame-rate limiter / vsync that GPU rasterization needs disabled actually live.
+	private void OpenSandboxSettings() => Game.Overlay.ShowSettingsModal("video");
+
+	private void SelectCategory(int i)
+	{
+		_activeCat = i;
+		_openCombo = null;
+		_focus = 0;
+	}
+
+	private void ToggleCombo(string key)
+	{
+		_openCombo = _openCombo == key ? null : key;
+	}
+
+	private void ToggleBool(Func<bool> get, Action<bool> set)
+	{
+		if (!Emu.IsValid())
+			return;
+		
+		set(!get());
+		
+		Emu.SaveSettings();
+	}
+	
+	private void Step(Func<float> get, Action<float> set, float min, float max, float delta)
+	{
+		if (!Emu.IsValid())
+			return;
+		
+		set(Math.Clamp((float)Math.Round(get() + delta, 3), min, max));
+		
+		Emu.SaveSettings();
+	}
+
+	private static float Frac(float v, float min, float max) => max <= min ? 0.0f : Math.Clamp((v - min) / (max - min), 0.0f, 1.0f);
+	private static string Pct(float v, float min, float max) => (Frac(v, min, max) * 100.0f).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+	private static string Num(float v) => v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+	private void SetFilter(PsxDisplayFilter f)
+	{
+		if (Emu.IsValid())
+		{
+			Emu.DisplayFilter = f;
+			Emu.SaveSettings();
+		}
+		
+		_openCombo = null;
+	}
+
+	private void SetRasterScale(int s)
+	{
+		if (Emu.IsValid())
+		{
+			Emu.GpuRasterScale = s;
+			Emu.SaveSettings();
+		}
+		
+		_openCombo = null;
+	}
+
+	private void SetLogLevel(EmulatorComponent.LogLevels l)
+	{
+		if (Emu.IsValid())
+		{
+			Emu.LogLevel = l;
+			Emu.SaveSettings();
+		}
+		
+		_openCombo = null;
+	}
+
+	private static string FilterLabel(PsxDisplayFilter f) => f == PsxDisplayFilter.Bilinear ? "Bilinear (Smooth)" : "Nearest (Sharp)";
+
+	private static string LogLevelLabel(EmulatorComponent.LogLevels l) => l switch
+	{
+		EmulatorComponent.LogLevels.None    => "None",
+		EmulatorComponent.LogLevels.TTYOnly => "TTY Only",
+		_                                   => "All",
+	};
+	
+	private void ToggleFetchCovers()
+	{
+		if (!Emu.IsValid())
+			return;
+		
+		Emu.FetchGameCovers = !Emu.FetchGameCovers;
+		
+		if (Emu.FetchGameCovers)
+			_ = Emu.RefreshGameCoversAsync();
+		
+		Emu.SaveSettings();
+	}
+
+	// --- Controller navigation ---
+	private string FocusCls(int row) => row == _focus ? "focus" : "";
+	
+	private record Ctrl(Action Dec, Action Inc, Action Act);
+
+	private Ctrl ToggleCtrl(Func<bool> get, Action<bool> set) => new
+	(
+		() => { if (Emu.IsValid()) { set(false);  Emu.SaveSettings(); } },
+		() => { if (Emu.IsValid()) { set(true);   Emu.SaveSettings(); } },
+		() => { if (Emu.IsValid()) { set(!get()); Emu.SaveSettings(); } }
+	);
+
+	private Ctrl ComboCtrl(Action<int> cycle) => new(() => cycle(-1), () => cycle(1), () => cycle(1));
+
+	private Ctrl StepCtrl(Func<float> get, Action<float> set, float min, float max, float step) => new
+	(
+		() => Step(get, set, min, max, -step),
+		() => Step(get, set, min, max,  step),
+		() => Step(get, set, min, max,  step)
+	);
+	
+	private List<Ctrl> GetControls()
+	{
+		var l = new List<Ctrl>();
+		
+		if (!Emu.IsValid())
+			return l;
+		
+		switch (_categories[_activeCat].Name)
+		{
+			case "Rendering":
+				l.Add(ToggleCtrl(() => Emu.GPURasterizer, v => Emu.GPURasterizer = v));
+				l.Add(ComboCtrl(CycleRasterScale));
+				break;
+			case "Post Processing":
+				l.Add(ComboCtrl(CycleFilter));
+				l.Add(StepCtrl(() => Emu.ScanlineStrength,     v => Emu.ScanlineStrength = v,     0f,   1f, 0.05f));
+				l.Add(StepCtrl(() => Emu.ScanlineSharpness,    v => Emu.ScanlineSharpness = v,    0.5f, 8f, 0.25f));
+				l.Add(StepCtrl(() => Emu.ScanlineFrequency,    v => Emu.ScanlineFrequency = v,    0f,   8f, 0.25f));
+				l.Add(StepCtrl(() => Emu.PhosphorMaskStrength, v => Emu.PhosphorMaskStrength = v, 0f,   1f, 0.05f));
+				l.Add(StepCtrl(() => Emu.CrtColorBoost,        v => Emu.CrtColorBoost = v,        1f,   2f, 0.05f));
+				break;
+			case "Debug":
+				l.Add(ToggleCtrl(() => Emu.ShowPerformanceOverlay, v => Emu.ShowPerformanceOverlay = v));
+				l.Add(ComboCtrl(CycleLogLevel));
+				break;
+			case "Services":
+				l.Add(ToggleCtrl(() => Emu.FetchGameCovers, v => { Emu.FetchGameCovers = v; if (v) _ = Emu.RefreshGameCoversAsync(); }));
+				break;
+		}
+		
+		return l;
+	}
+
+	private void CycleFilter(int dir)
+	{
+		if (!Emu.IsValid())
+			return;
+		
+		Emu.DisplayFilter = Emu.DisplayFilter == PsxDisplayFilter.Nearest ? PsxDisplayFilter.Bilinear : PsxDisplayFilter.Nearest;
+		Emu.SaveSettings();
+	}
+
+	private void CycleLogLevel(int dir)
+	{
+		if (!Emu.IsValid())
+			return;
+		
+		Emu.LogLevel = (EmulatorComponent.LogLevels)((((int)Emu.LogLevel + dir) % 3 + 3) % 3);
+		Emu.SaveSettings();
+	}
+
+	// Combo-head label for the current factor: the resolution hint when it's one of
+	// our presets, else a bare "Nx" fallback (e.g. a value carried over from an
+	// older save outside the preset range).
+	private string ScaleLabel(int scale)
+	{
+		foreach (var o in _scaleOptions)
+			if (o.Scale == scale)
+				return o.Label;
+
+		return $"{scale}x";
+	}
+
+	private void CycleRasterScale(int dir)
+	{
+		if (!Emu.IsValid())
+			return;
+
+		// Upscaling only applies on the GPU-raster path, ignored on the CPU path.
+		if (!Emu.GPURasterizer)
+			return;
+		
+		int idx = Array.FindIndex(_scaleOptions, o => o.Scale == Emu.GpuRasterScale);
+		idx = Math.Clamp((idx < 0 ? 0 : idx) + dir, 0, _scaleOptions.Length - 1);
+
+		Emu.GpuRasterScale = _scaleOptions[idx].Scale;
+		Emu.SaveSettings();
+	}
+	
+	public void HandleControllerInput()
+	{
+		if (!Emu.IsValid())
+			return;
+
+		if (Input.Pressed("PrevCat")) { SelectCategory((_activeCat - 1 + _categories.Length) % _categories.Length); return; }
+		if (Input.Pressed("NextCat")) { SelectCategory((_activeCat + 1) % _categories.Length); return; }
+
+		var controls = GetControls();
+		
+		if (controls.Count == 0)
+			return;
+		
+		_focus = Math.Clamp(_focus, 0, controls.Count - 1);
+
+		if (Input.Pressed("NavUp")) _focus = Math.Max(0, _focus - 1);
+		if (Input.Pressed("NavDown")) _focus = Math.Min(controls.Count - 1, _focus + 1);
+
+		var c = controls[_focus];
+		
+		if (Input.Pressed("NavLeft")) c.Dec?.Invoke();
+		if (Input.Pressed("NavRight")) c.Inc?.Invoke();
+		if (Input.Pressed("Accept")) c.Act?.Invoke();
+	}
+
+	protected override int BuildHash()
+	{
+		var e = EmulatorComponent.Current;
+		
+		if (!e.IsValid())
+			return HashCode.Combine(_activeCat, _openCombo, _focus);
+
+		return HashCode.Combine
+		(
+			HashCode.Combine(_activeCat, _openCombo, _focus),
+			HashCode.Combine(e.GPURasterizer, e.GpuRasterScale, e.DisplayFilter, e.ShowPerformanceOverlay, e.LogLevel, e.FetchGameCovers),
+			HashCode.Combine(e.ScanlineStrength, e.ScanlineSharpness, e.ScanlineFrequency, e.PhosphorMaskStrength, e.CrtColorBoost)
+		);
+	}
+}

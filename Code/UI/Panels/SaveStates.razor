@@ -1,0 +1,265 @@
+@using System
+@using System.Collections.Generic
+@using System.IO
+@using Sandbox.UI
+
+@namespace PSXEmu
+
+@inherits Panel
+
+<root>
+
+	@if (Emu.IsValid())
+	{
+		<div class="savestate-panel">
+
+			<div class="savestate-header">
+
+				<span class="material-icon savestate-head-icon">@( IsLoad ? "folder_open" : "save" )</span>
+				<span class="savestate-head-title">@( IsLoad ? "Load State" : "Save State" )</span>
+
+				<button class="savestate-close" onclick="@Close">
+					<span class="material-icon">arrow_back</span>
+				</button>
+			</div>
+
+			<div class="savestate-body">
+
+				<!-- Left column: game context + (save mode) the new-save form. -->
+				<div class="savestate-side">
+
+					<div class="savestate-game-card">
+
+						<span class="material-icon savestate-game-icon">videogame_asset</span>
+
+						<div class="savestate-game-text">
+
+							<span class="savestate-game-name">@GameLabel()</span>
+							<span class="savestate-game-sub">
+								@( IsLoad ? $"{(_saves?.Count ?? 0)} saved state(s)" : "Name and store your progress" )
+							</span>
+						</div>
+					</div>
+
+					@if (!IsLoad)
+					{
+						<div class="savestate-form">
+
+							<span class="savestate-form-label">New save</span>
+
+							<TextEntry class="savestate-name-input" Value:bind="@_saveName" Placeholder="Save name"></TextEntry>
+
+							<button class="savestate-save-btn" onclick="@DoSaveState">
+
+								<span class="material-icon">save</span>
+								<span>Save State</span>
+							</button>
+						</div>
+					}
+
+					@if (!string.IsNullOrEmpty(_statusMessage))
+					{
+						<div class="savestate-status @( _statusIsError ? "error" : "ok" )">@_statusMessage</div>
+					}
+				</div>
+
+				<!-- Right column: the list of existing saves. -->
+				<div class="savestate-content">
+
+					<div class="savestate-list-label">@( IsLoad ? "Saved states" : "Existing saves" )</div>
+
+					@if (_saves == null || _saves.Count == 0)
+					{
+						<div class="savestate-empty">
+
+							<span class="material-icon">inbox</span>
+							<span>No save states yet.</span>
+						</div>
+					}
+					else
+					{
+						@for (int i = 0; i < _saves.Count; i++)
+						{
+							int idx = i;
+							string f = _saves[i];
+
+							<div class="savestate-row @( _focus == idx ? "focus" : "" )">
+
+								<span class="material-icon savestate-row-icon">description</span>
+
+								<div class="savestate-row-info">
+									<span class="savestate-row-name">@StripExt( f )</span>
+								</div>
+
+								@if (IsLoad)
+								{
+									<button class="savestate-row-btn load" onclick="@( () => DoLoadState( f ) )">
+
+										<span class="material-icon">play_arrow</span>
+										<span>Load</span>
+									</button>
+								}
+								else
+								{
+									<button class="savestate-row-btn" onclick="@( () => UseExistingName( f ) )" title="Overwrite this slot">
+
+										<span class="material-icon">drive_file_rename_outline</span>
+									</button>
+								}
+
+								<button class="savestate-row-btn delete" onclick="@( () => DoDeleteState( f ) )" title="Delete">
+
+									<span class="material-icon">delete</span>
+								</button>
+							</div>
+						}
+					}
+				</div>
+			</div>
+		</div>
+	}
+</root>
+
+@code
+{
+	// Wired by the host (PauseMenu). OnClose backs out to the pause menu;
+	// OnLoaded fires after a successful load so the host can resume the game.
+	public Action OnClose { get; set; }
+	public Action OnLoaded { get; set; }
+
+	// Set by the host before showing: true = Load page, false = Save page.
+	public bool IsLoad { get; set; }
+
+	// _saveName is two-way bound to the TextEntry and deliberately kept OUT of
+	// BuildHash so typing doesn't rebuild the panel mid-keystroke.
+	private string _saveName = "";
+	private List<string> _saves;
+	private string _statusMessage;
+	private bool _statusIsError;
+	private int _focus;
+	private bool _loaded;
+
+	private EmulatorComponent Emu => EmulatorComponent.Current;
+
+	// One-time init the first frame this panel is alive (it's created fresh each
+	// time the host opens it). IsLoad is already set by then (parent render runs
+	// first), so we can pick the right default name + populate the list.
+	public override void Tick()
+	{
+		base.Tick();
+
+		if (_loaded) return;
+		_loaded = true;
+
+		RefreshSaves();
+		if (!IsLoad && Emu.IsValid())
+			_saveName = Emu.SuggestNextSaveName();
+	}
+
+	private void Close() => OnClose?.Invoke();
+
+	private void RefreshSaves()
+	{
+		// ListSaveStates is scoped to the current game's own folder, so it never
+		// lists, or lets you load another game's states.
+		_saves = Emu.IsValid() ? Emu.ListSaveStates() : new List<string>();
+		_focus = Math.Clamp(_focus, 0, Math.Max(0, _saves.Count - 1));
+	}
+
+	private void DoSaveState()
+	{
+		if (!Emu.IsValid()) return;
+
+		string name = string.IsNullOrWhiteSpace(_saveName) ? Emu.SuggestNextSaveName() : _saveName.Trim();
+
+		if (Emu.SaveStateToSlot(name, out string error))
+		{
+			RefreshSaves();
+			// Bump to the next free slot so a second Save doesn't clobber this one.
+			_saveName = Emu.SuggestNextSaveName();
+			SetStatus($"Saved \"{StripExt(name)}\"", false);
+		}
+		else
+		{
+			SetStatus($"Save failed: {error}", true);
+		}
+	}
+
+	private void DoLoadState(string file)
+	{
+		if (!Emu.IsValid()) return;
+
+		if (Emu.LoadStateFromSlot(file, out string error))
+		{
+			// Hand back to the host to suppress the triggering press, close, and resume.
+			OnLoaded?.Invoke();
+		}
+		else
+		{
+			SetStatus($"Load failed: {error}", true);
+		}
+	}
+
+	private void DoDeleteState(string file)
+	{
+		if (!Emu.IsValid()) return;
+
+		if (Emu.DeleteSaveState(file, out string error))
+		{
+			RefreshSaves();
+			SetStatus($"Deleted \"{StripExt(file)}\"", false);
+		}
+		else
+		{
+			SetStatus($"Delete failed: {error}", true);
+		}
+	}
+
+	// Save mode: clicking the rename icon pre-fills the name field so the next
+	// Save overwrites that exact slot.
+	private void UseExistingName(string file)
+	{
+		_saveName = file;
+		SetStatus($"Will overwrite \"{StripExt(file)}\" on Save", false);
+	}
+
+	private void SetStatus(string msg, bool isError)
+	{
+		_statusMessage = msg;
+		_statusIsError = isError;
+	}
+
+	private string GameLabel()
+	{
+		string g = Emu.IsValid() ? Emu.CurrentGameName : null;
+		return string.IsNullOrWhiteSpace(g) ? "Current game" : g;
+	}
+
+	private static string StripExt(string f)
+		=> string.IsNullOrEmpty(f) ? f : Path.GetFileNameWithoutExtension(f);
+
+	// --- Controller navigation (mirrors Settings.HandleControllerInput) ---
+	// Up/Down moves the highlighted row; Accept loads it (Load page) or pre-fills
+	// it for overwrite (Save page, actual save still goes through the Save button
+	// since naming needs a keyboard).
+	public void HandleControllerInput()
+	{
+		if (!Emu.IsValid() || _saves == null || _saves.Count == 0)
+			return;
+
+		_focus = Math.Clamp(_focus, 0, _saves.Count - 1);
+
+		if (Input.Pressed("NavUp")) _focus = Math.Max(0, _focus - 1);
+		if (Input.Pressed("NavDown")) _focus = Math.Min(_saves.Count - 1, _focus + 1);
+
+		if (Input.Pressed("Accept"))
+		{
+			string f = _saves[_focus];
+			if (IsLoad) DoLoadState(f);
+			else UseExistingName(f);
+		}
+	}
+
+	protected override int BuildHash()
+		=> HashCode.Combine(IsLoad, _saves?.Count ?? 0, _statusMessage, _focus, _loaded);
+}

@@ -1,0 +1,580 @@
+/* -----------------------------------------------------------
+   Settings - embedded child Panel (like Map.razor). Full-screen
+   overlay: dim backdrop + centred modal with a category list on
+   the left and the matching toggles / comboboxes / steppers on
+   the right. Warm dark chrome to match PauseMenu.
+   ----------------------------------------------------------- */
+
+Settings
+{
+	/* Inline panel - fills the launcher's content area (where the carousel sits)
+	   rather than floating as a modal. The host (EmulatorPanel / PauseMenu) shows
+	   it in place of its own content, so it must grow to fill, not center. */
+	position: relative;
+
+	flex-grow: 1;
+	flex-direction: column;
+	align-items: stretch;
+
+	width: 100%;
+	min-height: 0;
+
+	pointer-events: all;
+
+	font-family: Poppins;
+	color: #f0ead8;
+}
+
+/* s&box scopes SCSS per-component, so re-declare the icon font here. */
+.material-icon
+{
+	font-family: Material Icons;
+	font-size: 22px;
+	line-height: 22px;
+	font-weight: 400;
+	text-transform: none;
+}
+
+.settings-panel
+{
+	/* Fills the Settings root (which itself fills the launcher content area).
+	   No modal frame, it's part of the page now, transparent over the launcher
+	   background; the category sidebar provides the only visual structure. */
+	position: relative;
+
+	flex-grow: 1;
+	flex-direction: column;
+	align-items: stretch;
+
+	width: 100%;
+	min-height: 0;
+
+	overflow: hidden;
+}
+
+.settings-header
+{
+	flex-direction: row;
+	align-items: center;
+	gap: 12px;
+
+	padding: 18px 20px;
+	border-bottom: 1px solid #ffffff14;
+
+	.settings-head-icon
+	{
+		font-size: 26px;
+		line-height: 26px;
+		color: #ffcc7a;
+	}
+
+	.settings-head-title
+	{
+		flex-grow: 1;
+		font-size: 22px;
+		font-weight: 800;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: #f7f1e7;
+	}
+}
+
+.settings-close
+{
+	align-items: center;
+	justify-content: center;
+
+	width: 32px;
+	height: 32px;
+
+	border-radius: 8px;
+	border: 1px solid #ffffff1e;
+	background-color: #ffffff0a;
+	color: #c8bfa8;
+
+	cursor: pointer;
+	transition: all 0.1s ease-out;
+
+	.material-icon { font-size: 20px; line-height: 20px; }
+
+	&:hover
+	{
+		background-color: #ff5a4422;
+		border-color: #ff7a5a66;
+		color: #ffd9cf;
+
+		sound-in: ui.button.over;
+	}
+
+	&:active
+	{
+		sound-in: ui.button.press;
+	}
+}
+
+.settings-body
+{
+	flex-direction: row;
+	flex-grow: 1;
+	align-items: stretch;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.settings-cats
+{
+	flex-direction: column;
+	align-items: stretch;
+	gap: 4px;
+
+	width: 500px;
+	padding: 14px;
+
+	border-right: 1px solid #ffffff14;
+	background-color: #00000028;
+}
+
+.settings-cat
+{
+	flex-direction: row;
+	align-items: center;
+	gap: 12px;
+
+	height: 64px;
+	padding: 0 14px;
+
+	border-radius: 8px;
+
+	color: #f0ead8aa;
+
+	font-size: 18px;
+	font-weight: 600;
+
+	cursor: pointer;
+	transition: all 0.1s ease-out;
+
+	.material-icon
+	{
+		font-size: 20px;
+		
+		color: #c8bfa8aa;
+	}
+
+	&:hover
+	{
+		background-color: #ffffff10;
+		color: #f0ead8;
+
+		sound-in: ui.button.over;
+	}
+	
+	&.selected
+	{
+		background-color: #f0ead8;
+		color: #1a1a1a;
+		font-weight: 700;
+
+		sound-in: ui.button.press;
+
+		.material-icon
+		{
+			color: #1a1a1a;
+		}
+	}
+}
+
+/* Footer action pinned to the bottom-left of the category sidebar, opens s&box's
+   own settings overlay. margin-top: auto pushes it below the category list. */
+.settings-external
+{
+	flex-direction: row;
+	align-items: center;
+	gap: 10px;
+
+	margin-top: auto;
+	height: 48px;
+	padding: 0 14px;
+
+	border-radius: 8px;
+	border: 1px solid #ffffff1e;
+	background-color: #ffffff08;
+	color: #f0ead8aa;
+
+	font-size: 14px;
+	font-weight: 600;
+
+	cursor: pointer;
+	transition: all 0.1s ease-out;
+
+	.material-icon
+	{
+		font-size: 20px;
+		line-height: 20px;
+		color: #c8bfa8aa;
+	}
+
+	.settings-external-label
+	{
+		flex-grow: 1;
+	}
+
+	&:hover
+	{
+		background-color: #ffffff16;
+		border-color: #ffffff36;
+		color: #f0ead8;
+
+		.material-icon { color: #f0ead8; }
+
+		sound-in: ui.button.over;
+	}
+
+	&:active
+	{
+		sound-in: ui.button.press;
+	}
+}
+
+.settings-content
+{
+	flex-direction: column;
+	flex-grow: 1;
+	align-items: stretch;
+	gap: 6px;
+
+	padding: 16px;
+	overflow-x: hidden;
+	overflow-y: scroll;
+}
+
+.set-row
+{
+	flex-direction: row;
+	align-items: center;
+	gap: 16px;
+
+	min-height: 96px;
+	padding: 12px;
+
+	border-bottom: 1px #ffffff0c;
+
+	&.focus
+	{
+		background-color: #f0ead812;
+	}
+	
+	&.disabled
+	{
+		opacity: 0.1;
+		pointer-events: none;
+	}
+
+	/* While its dropdown is open, lift the whole row above the following notice so
+	   the dropdown's lower options stay clickable. The notice is a later DOM
+	   sibling, so without this it paints/hit-tests on top of the overflowing list. */
+	&.combo-open
+	{
+		position: relative;
+		z-index: 10;
+	}
+}
+
+.set-info
+{
+	flex-direction: column;
+	flex-grow: 1;
+
+	.set-label
+	{
+		font-size: 20px;
+		font-weight: bold;
+		
+		color: #f0ead8;
+	}
+	
+	.set-hint
+	{
+		font-size: 14px;
+		color: #f0ead868;
+	}
+}
+
+.set-notice
+{
+	flex-direction: row;
+	align-items: center;
+	gap: 12px;
+	
+	padding: 20px;
+
+	border-radius: 6px;
+	border: 1px #ff80503a;
+	background-color: #ff805012;
+
+	.set-notice-icon
+	{
+		flex-shrink: 0;
+		font-size: 20px;
+		line-height: 20px;
+		color: #ff8050;
+	}
+
+	.set-notice-text
+	{
+		/* Flow the text + inline button as a wrapping sentence. */
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 5px;
+
+		font-size: 13px;
+		line-height: 20px;
+		color: #f0ead8c0;
+
+		.set-notice-btn
+		{
+			/* Inline amber link-pill, matching the notice accent. */
+			align-items: center;
+			justify-content: center;
+
+			height: 22px;
+			padding: 0 9px;
+
+			border-radius: 5px;
+			border: 1px solid #ff805055;
+			background-color: #ff80501e;
+			color: #ff8050;
+
+			font-size: 13px;
+			font-weight: 600;
+
+			cursor: pointer;
+			transition: all 0.1s ease-out;
+			
+			&:hover
+			{
+				background-color: #ff805033;
+				border-color: #ff8050;
+				color: #ff9060;
+
+				sound-in: ui.button.over;
+			}
+
+			&:active
+			{
+				sound-in: ui.button.press;
+			}
+		}
+	}
+}
+
+/* On/off toggle switch (bools). */
+.set-switch
+{
+	position: relative;
+
+	width: 48px;
+	height: 26px;
+
+	border-radius: 100%;
+	border: 1px solid #ffffff24;
+	background-color: #00000055;
+
+	cursor: pointer;
+	transition: all 0.12s ease-out;
+
+	.set-switch-knob
+	{
+		position: absolute;
+		left: 1px;
+		top: 1px;
+
+		width: 20px;
+		height: 20px;
+
+		border-radius: 10px;
+		background-color: #c8bfa8;
+		transition: all 0.12s ease-out;
+	}
+
+	&.on
+	{
+		background-color: #ffcc7a55;
+		border-color: #ffcc7aaa;
+
+		sound-in: ui.button.press;
+		sound-out: ui.button.press;
+
+		.set-switch-knob { left: 24px; background-color: #d8f5dd; }
+	}
+}
+
+/* Inline-expand combobox (enums / discrete choices). */
+.set-combo
+{
+	flex-direction: column;
+	align-items: stretch;
+	width: 230px;
+}
+
+.set-combo-head
+{
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+
+	height: 38px;
+	padding: 0 12px;
+
+	border-radius: 8px;
+	border: 1px solid #ffffff24;
+	background-color: #00000040;
+	color: #f0ead8;
+
+	font-size: 13px;
+	font-weight: 600;
+
+	cursor: pointer;
+	transition: all 0.1s ease-out;
+
+	.material-icon { font-size: 20px; line-height: 20px; color: #c8bfa8; }
+
+	&:hover
+	{
+		border-color: #f0ead87a;
+
+		sound-in: ui.button.over;
+	}
+}
+
+.set-combo-list
+{
+	position: absolute;
+	width: 230px;
+	
+	flex-direction: column;
+	align-items: stretch;
+	gap: 2px;
+	
+	padding: 4px;
+
+	border-radius: 8px;
+	border: 1px solid #ffffff1e;
+	background-color: rgba( 16, 15, 14, 0.98 );
+	
+	z-index: 1;
+}
+
+.set-combo-opt
+{
+	align-items: center;
+	justify-content: flex-start;
+
+	height: 34px;
+	padding: 0 12px;
+
+	border-radius: 6px;
+	background-color: transparent;
+	color: #f0ead8cc;
+
+	font-size: 13px;
+	font-weight: 500;
+
+	cursor: pointer;
+	transition: all 0.1s ease-out;
+
+	&:hover
+	{
+		background-color: #ffffff14; color: #f0ead8;
+
+		sound-in: ui.button.over;
+	}
+
+	&.sel
+	{
+		background-color: #f0ead81e; color: #f0ead8; font-weight: 700;
+	}
+
+	&:active
+	{
+		sound-in: ui.button.press;
+	}
+}
+
+/* Stepper + fill bar (ranged floats). */
+.set-stepper
+{
+	flex-direction: row;
+	align-items: center;
+	gap: 8px;
+	width: 230px;
+}
+
+.set-step
+{
+	align-items: center;
+	justify-content: center;
+
+	width: 32px;
+	height: 32px;
+
+	border-radius: 8px;
+	border: 1px solid #ffffff24;
+	background-color: #ffffff0a;
+	color: #f0ead8;
+
+	cursor: pointer;
+	transition: all 0.1s ease-out;
+
+	.material-icon { font-size: 18px; line-height: 18px; }
+
+	&:hover
+	{
+		background-color: #ffffff1c;
+		border-color: #f0ead87a;
+
+		sound-in: ui.button.over;
+	}
+	
+	&:active
+	{
+		sound-in: ui.button.press;
+	}
+}
+
+.set-bar
+{
+	position: relative;
+
+	flex-grow: 1;
+	height: 32px;
+
+	align-items: center;
+	justify-content: center;
+
+	border-radius: 8px;
+	border: 1px solid #ffffff1e;
+	background-color: #00000040;
+	overflow: hidden;
+
+	.set-bar-fill
+	{
+		position: absolute;
+		left: 0;
+		top: 0;
+		bottom: 0;
+		height: 100%;
+
+		background-color: #ffcc7a55;
+		border-right: 1px solid #ffcc7aaa;
+	}
+
+	.set-bar-val
+	{
+		position: relative;
+		font-size: 13px;
+		font-weight: 700;
+		color: #f0ead8;
+	}
+}

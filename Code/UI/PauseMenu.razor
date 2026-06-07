@@ -1,0 +1,385 @@
+@namespace PSXEmu
+
+@using Sandbox.UI
+
+@inherits PanelComponent
+
+<root>
+
+	@if (_isPaused)
+	{
+		<div class="pause-shell">
+
+			<div class="pause-backdrop"></div>
+
+			<div class="pause-frame">
+
+				@if (_settingsOpen)
+				{
+					<Settings @ref="_settingsPanel" OnClose=@CloseSettings/>
+				}
+				else if (_saveStatesOpen)
+				{
+					<SaveStates @ref="_saveStatesPanel" IsLoad="@_saveStatesIsLoad" OnClose=@CloseSaveStates OnLoaded=@OnStateLoaded/>
+				}
+				else
+				{
+					<div class="top-bar">
+
+						<div class="top-bar-brand">
+
+							<span class="material-icon brand-icon">pause_circle</span>
+							<span class="brand-name">Paused</span>
+						</div>
+
+						<div class="top-bar-game">@CurrentGameLabel()</div>
+					</div>
+					
+					<div class="pause-content">
+
+						<div class="section-header">
+
+							<div class="section-step-tag">Game Paused</div>
+							<h2 class="section-title">Menu</h2>
+						</div>
+
+						<div class="pause-menu-list">
+
+							@for (int i = 0; i < _menuItems.Length; i++)
+							{
+								int idx = i;
+								var item = _menuItems[i];
+
+								<button class="pause-btn @( _menuIndex == idx ? "focus" : "" )"
+										onclick="@( () => InvokeMenuItem( idx ) )">
+
+									<span class="material-icon pause-btn-icon">@item.Icon</span>
+									<span class="pause-btn-label">@item.Label</span>
+								</button>
+							}
+						</div>
+					</div>
+				}
+				
+				<div class="action-bar">
+
+					<div class="control-hints">
+
+						@if (_settingsOpen)
+						{
+							<ControlHint name="NavUp,NavDown" value="Navigate"/>
+							<ControlHint name="PrevCat,NextCat" value="Category"/>
+							<ControlHint name="NavLeft,NavRight" value="Select"/>
+							<ControlHint name="Accept" value="Toggle"/>
+							<ControlHint name="Back" value="Back"/>
+						}
+						else if (_saveStatesOpen)
+						{
+							<ControlHint name="NavUp,NavDown" value="Navigate"/>
+							<ControlHint name="Accept" value="@( _saveStatesIsLoad ? "Load" : "Overwrite" )"/>
+							<ControlHint name="Back" value="Back"/>
+						}
+						else
+						{
+							<ControlHint name="NavUp,NavDown" value="Navigate"/>
+							<ControlHint name="Accept" value="Select"/>
+							<ControlHint name="Pause" value="Resume"/>
+						}
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+</root>
+
+@code
+{
+	private bool _isPaused;
+
+	private float _startDownCounter = 1000.0f;
+
+	// Currently focused button index in _menuItems. DPad Up/Down moves it,
+	// Cross / mouse click activates the focused (or clicked) item.
+	private int _menuIndex;
+
+	// Counts up from 0 the moment a menu item is activated. While this is
+	// below the suppression window we force the Cross action to false in
+	// OnUpdate so the same press that closed the menu doesn't bleed into the
+	// running emulator (e.g. game seeing a stray X press right on resume).
+	private TimeSince _crossSuppressSince = 999f;
+
+	// Save / Load: the embedded SaveStates.razor child panel (Code/UI/Panels/),
+	// shown in place of the pause menu when the user picks Save State / Load State.
+	// _saveStatesIsLoad picks the page (false = Save, true = Load).
+	private bool _saveStatesOpen;
+	private bool _saveStatesIsLoad;
+	// @ref to the embedded SaveStates panel, lets OnUpdate forward controller input.
+	private PSXEmu.SaveStates _saveStatesPanel;
+
+	// Settings: the embedded Settings.razor child panel (Code/UI/Panels/), shown
+	// in place of the pause menu when the user picks "Settings".
+	private bool _settingsOpen;
+	// @ref to the embedded Settings panel, lets OnUpdate forward controller input.
+	private PSXEmu.Settings _settingsPanel;
+
+	// Menu definition. Order = visual order top-to-bottom. Each row pairs
+	// a Material icon, a label, and the action to fire when activated.
+	private record MenuItem(string Icon, string Label, System.Action Action);
+
+	private MenuItem[] _menuItems;
+
+
+
+	protected override void OnStart()
+	{
+		_menuItems = new[]
+		{
+			new MenuItem( "play_arrow",  "Resume",            ResumeEmulator ),
+			new MenuItem( "save",        "Save State",        () => OpenSaveStates( false ) ),
+			new MenuItem( "folder_open", "Load State",        () => OpenSaveStates( true ) ),
+			new MenuItem( "restart_alt", "Reset Game",        ResetEmulator ),
+			new MenuItem( "tune",        "Settings",          OpenSettings ),
+			new MenuItem( "home",        "Quit to Main Menu", QuitToMainMenu ),
+			new MenuItem( "logout",      "Quit to S&box",     QuitToSandbox ),
+		};
+	}
+
+
+
+	protected override int BuildHash() => System.HashCode.Combine(
+		_isPaused, _menuIndex, _saveStatesOpen, _saveStatesIsLoad, _settingsOpen);
+
+
+
+	protected override void OnUpdate()
+	{
+		if (!EmulatorComponent.Current.IsValid())
+			return;
+
+		// This is a workaround bcs S&box is consuming Escape and Start button to display the S&box pause menu usually
+		// Here we don't want that, we need to manually trigger 'PSX_Start' action by making this weird counter system so the
+		// button is considered hold down for some frames
+		_startDownCounter += Time.Delta * 1000;
+
+		Input.SetAction("Start", _startDownCounter < 60);
+
+		// Briefly mute Cross right after a pause menu action fires so the
+		// triggering button press doesn't leak into the running game on the
+		// next handful of frames. Same pattern as the Start suppression
+		// above, just timer-based instead of counter-based.
+		if (_crossSuppressSince < 0.2f)
+			Input.SetAction("Accept", false);
+
+		if (Input.EscapePressed)
+		{
+			_startDownCounter = 0;
+
+			Input.EscapePressed = false;
+		}
+
+		if (!EmulatorComponent.Current.IsReady)
+			return;
+
+		// Force the cursor visibility when using keyboard and mouse
+		Mouse.Visibility = Input.UsingController ? MouseVisibility.Hidden : MouseVisibility.Auto;
+
+		// Pause toggle: Tab on keyboard / Guide button on controller. Same
+		// behaviour as before, toggles the emulator's run state, plus shows
+		// or hides this overlay (driven by _isPaused). While the modal is up,
+		// the same key backs OUT of the modal instead of resuming the game.
+		if (Input.Pressed("Pause"))
+		{
+			if (_settingsOpen) { CloseSettings(); return; }
+			if (_saveStatesOpen) { CloseSaveStates(); return; }
+
+			ToggleEmulatorPause();
+			return;
+		}
+
+		// Menu-only input only runs while the overlay is showing. When the
+		// modal is open we route to its (minimal) input handler instead of the
+		// vertical menu navigation.
+		if (_isPaused)
+		{
+			if (_settingsOpen)
+				HandleSettingsInput();
+			else if (_saveStatesOpen)
+				HandleSaveStatesInput();
+			else
+				HandlePauseMenuInput();
+		}
+	}
+
+
+
+	private void HandlePauseMenuInput()
+	{
+		if (_menuItems == null || _menuItems.Length == 0) return;
+
+		if (Input.Pressed("NavUp"))
+		{
+			_menuIndex = (_menuIndex - 1 + _menuItems.Length) % _menuItems.Length;
+		}
+
+		if (Input.Pressed("NavDown"))
+		{
+			_menuIndex = (_menuIndex + 1) % _menuItems.Length;
+		}
+
+		if (Input.Pressed("Accept"))
+		{
+			InvokeMenuItem(_menuIndex);
+		}
+	}
+
+
+
+	// SaveStates panel is mouse-driven (its own back button + clicks); Back closes
+	// it, and we forward DPad / Accept so a controller can navigate the save list.
+	private void HandleSaveStatesInput()
+	{
+		if (Input.Pressed("Back")) { CloseSaveStates(); return; }
+
+		_saveStatesPanel?.HandleControllerInput();
+	}
+
+	// Settings panel is mouse-driven (its own X + click-outside); Circle backs out
+	// to the pause menu for controller / keyboard users.
+	private void HandleSettingsInput()
+	{
+		if (Input.Pressed("Back")) { CloseSettings(); return; }
+
+		// Forward DPad / Cross / L1 / R1 to the embedded Settings panel so a
+		// controller can navigate it (it focuses its first control by default).
+		_settingsPanel?.HandleControllerInput();
+	}
+
+
+
+	private void InvokeMenuItem(int idx)
+	{
+		if (_menuItems == null || idx < 0 || idx >= _menuItems.Length) return;
+		_menuItems[idx].Action?.Invoke();
+
+		// Open the suppression window, the rest of this frame and the next
+		// ~100ms of Cross input get swallowed in OnUpdate so the press that
+		// just activated the menu item doesn't double-fire into the emulator
+		// once we've handed control back.
+		_crossSuppressSince = 0;
+		Input.SetAction("Accept", false);
+	}
+
+
+
+	private void ToggleEmulatorPause()
+	{
+		_isPaused = !_isPaused;
+
+		EmulatorComponent.Current.SetPaused(_isPaused);
+
+		// Reset focus to the Resume button every time the menu opens so the
+		// most-common action (back to playing) is the default Cross-press.
+		// Also make sure we never reopen straight into a stale modal.
+		if (_isPaused)
+			_menuIndex = 0;
+		else
+			_saveStatesOpen = false;
+
+		StateHasChanged();
+	}
+
+
+
+	private void ResumeEmulator()
+	{
+		_isPaused = false;
+		_saveStatesOpen = false;
+		_settingsOpen = false;
+
+		EmulatorComponent.Current?.SetPaused(false);
+	}
+
+
+
+	private void ResetEmulator()
+	{
+		ResumeEmulator();
+
+		EmulatorComponent.Current?.ResetEmulator();
+	}
+
+
+
+	private void OpenSettings()
+	{
+		_settingsOpen = true;
+		StateHasChanged();
+	}
+
+	private void CloseSettings()
+	{
+		_settingsOpen = false;
+		StateHasChanged();
+	}
+
+
+
+	private void QuitToMainMenu()
+	{
+		_isPaused = false;
+		_saveStatesOpen = false;
+
+		EmulatorComponent.Current?.SetPaused(false);
+		EmulatorComponent.Current?.ShutdownEmulator();
+	}
+
+
+
+	private void QuitToSandbox()
+	{
+		_isPaused = false;
+		_saveStatesOpen = false;
+
+		EmulatorComponent.Current?.SetPaused(false);
+		EmulatorComponent.Current?.ShutdownEmulator();
+
+		Game.Close();
+	}
+
+
+
+	// =======================================================================
+	// Save / Load - embedded SaveStates.razor child panel (Code/UI/Panels/)
+	// =======================================================================
+
+	private void OpenSaveStates(bool isLoad)
+	{
+		_saveStatesIsLoad = isLoad;
+		_saveStatesOpen = true;
+		StateHasChanged();
+	}
+
+	private void CloseSaveStates()
+	{
+		_saveStatesOpen = false;
+		StateHasChanged();
+	}
+
+	// Fired by the SaveStates panel after a successful load, jump straight back
+	// into play at the restored point, suppressing the press that triggered it so
+	// it doesn't bleed into the game.
+	private void OnStateLoaded()
+	{
+		_crossSuppressSince = 0;
+		Input.SetAction("Accept", false);
+		_saveStatesOpen = false;
+		ResumeEmulator();
+	}
+
+	private string CurrentGameLabel()
+	{
+		var emu = EmulatorComponent.Current;
+		string g = emu.IsValid() ? emu.CurrentGameName : null;
+		return string.IsNullOrWhiteSpace(g) ? "Current game" : g;
+	}
+}
