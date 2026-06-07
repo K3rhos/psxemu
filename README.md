@@ -38,3 +38,11 @@ A work in progress PlayStation emulator for S&box featuring a modern UI, working
 
 > [!NOTE]
 > Copyrighted ROMs and BIOS files are not included, you must provide your own.
+
+## 🎞️ Credits
+
+- [sGBA](https://github.com/Asphaltian/sgba) (Some of the frontend inspiration/structure)
+- [No$PSX](https://problemkaputt.de/psx.htm) (Real hardware PSX documentation)
+- [ProjectPSX](https://github.com/BluestormDNA/ProjectPSX) (C# overall inspiration/structure, was especially useful in the early days of this project)
+- [Avocado](https://github.com/JaCzekanski/Avocado) (mainly CD-ROM/DMA related stuff)
+- [Claude Code](https://claude.ai/) (Would have not been possible without the help of AI, especially for debugging, experimenting, finding bugs, incorrect values, incorrect bitshift and so on...)
