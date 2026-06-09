@@ -80,6 +80,10 @@ public sealed partial class EmulatorComponent : Component, IHotloadManaged
 	{
 		Current = this;
 
+		// Make sure bios and roms directory exists by default
+		FileSystem.Data.CreateDirectory("bios");
+		FileSystem.Data.CreateDirectory("roms");
+		
 		// Restore persisted user settings before anything reads them.
 		LoadSettings();
 

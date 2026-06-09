@@ -519,21 +519,76 @@ EmulatorPanel
 {
 	flex-direction: row;
 	align-items: center;
-	justify-content: flex-end;
 	height: 76px;
 	min-height: 76px;
 	padding: 0 32px;
 	border-top: 1px solid #ffffff0c;
 	background-color: #00000028;
-}
 
-/* Control-hint row, sits in the bottom-right corner of the launcher. Each
-   ControlHint renders its input glyph(s) + a label; this just spaces them out. */
-.control-hints
-{
-	flex-direction: row;
-	align-items: center;
-	gap: 16px;
+	.btns
+	{
+		flex-grow: 1;
+
+		.quit-btn
+		{
+			align-items: center;
+			gap: 8px;
+			
+			padding: 8 16px;
+
+			border-radius: 6px;
+			border: 1px solid #ffffff1e;
+			background-color: #ffffff0a;
+			color: #f0ead8cc;
+			
+			font-size: 13px;
+			font-weight: 600;
+
+			cursor: pointer;
+			transition: all 0.1s ease-out;
+
+			.btn-icon
+			{
+				font-size: 20px;
+				color: #c8bfa8;
+			}
+
+			&:hover
+			{
+				background-color: #ffffff18;
+				border-color: #ffffff36;
+				color: #f0ead8;
+
+				.btn-icon { color: #f0ead8; }
+
+				sound-in: ui.button.over;
+			}
+
+			&.focus
+			{
+				background-color: #f0ead818;
+				border-color: #f0ead8aa;
+				color: #f0ead8;
+				box-shadow: 0 0 0 2px #f0ead84a, 0 0 18px #f0ead83a;
+
+				sound-in: ui.button.over;
+
+				.btn-icon { color: #f0ead8; }
+			}
+
+			&:active
+			{
+				sound-in: ui.button.press;
+			}
+		}
+	}
+
+	.control-hints
+	{
+		flex-direction: row;
+		align-items: center;
+		gap: 16px;
+	}
 }
 
 /* -----------------------------------------------------------

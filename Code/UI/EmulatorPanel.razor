@@ -220,8 +220,17 @@
 				
 				<div class="action-bar">
 					
-					<div class="control-hints">
+					<div class="btns">
 						
+						<button class="quit-btn" onclick=@Game.Close>
+							
+							<span class="material-icon btn-icon">logout</span>
+							<span class="btn-label">Quit to S&box</span>
+						</button>
+					</div>
+					
+					<div class="control-hints">
+
 						@if (_settingsOpen)
 						{
 							<ControlHint name="NavUp,NavDown" value="Navigate"/>
