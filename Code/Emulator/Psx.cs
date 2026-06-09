@@ -54,10 +54,6 @@ public partial class Psx
 	public double FrameTime => VideoStandard == PsxConstants.VideoStandard.PAL ? PsxConstants.FrameTimePAL : PsxConstants.FrameTimeNTSC;
 	public int TargetSpuSamplesPerFrame => VideoStandard == PsxConstants.VideoStandard.PAL ? PsxConstants.SpuSamplesPerFramePAL : PsxConstants.SpuSamplesPerFrameNTSC;
 
-	// Diagnostic: detect idle (no GPU draw commands for N frames)
-	private int _idleFrameCount;
-	private bool _idleDiagDone;
-
 	// Real-time emulated fps measurement
 	private readonly System.Diagnostics.Stopwatch _fpsSw = System.Diagnostics.Stopwatch.StartNew();
 	private long _fpsFrameAccum;
@@ -158,8 +154,6 @@ public partial class Psx
 		TotalCycles = 0;
 		FrameCount = 0;
 		_frameClock = Cpu.Cycles;
-		_idleFrameCount = 0;
-		_idleDiagDone = false;
 		_fpsFrameAccum = 0;
 		EmulatedFps = 0;
 		_fpsSw.Restart();
@@ -252,69 +246,6 @@ public partial class Psx
 
 		// Dump emulator state to the trace file (no-op when trace is disabled, which is the default).
 		Trace.OnFrameEnd();
-
-		// Diagnostic: if no GPU draw commands for 120+ frames, dump CPU state once
-		if (Gpu.DrawCmdCount == 0)
-		{
-			_idleFrameCount++;
-			if (_idleFrameCount == 60 && !_idleDiagDone || _idleFrameCount == 180)
-			{
-				_idleDiagDone = true;
-				uint pc = Cpu.Pc;
-				uint ra = Cpu.Gpr[PsxConstants.RA];
-				uint sp = Cpu.Gpr[PsxConstants.SP];
-				uint sr = Cpu.Sr;
-				uint imask = Interrupts.IMask;
-				uint istat = Interrupts.IStat;
-				// Sample what instructions are at the current PC (4 words)
-				uint instr0 = Memory.ReadWord(pc);
-				uint instr1 = Memory.ReadWord(pc + 4);
-				uint instr2 = Memory.ReadWord(pc + 8);
-				uint instr3 = Memory.ReadWord(pc + 12);
-				PsxLog.Write(PsxLogCategory.PSX, PsxLogLevel.Warn,
-					$"[IDLE DIAG] No GPU commands for {_idleFrameCount} frames! PC=0x{pc:X8} RA=0x{ra:X8} SP=0x{sp:X8} SR=0x{sr:X8}");
-				PsxLog.Write(PsxLogCategory.PSX, PsxLogLevel.Warn,
-					$"[IDLE DIAG] IMask=0x{imask:X} IStat=0x{istat:X} DICR=0x{Dma.DiagDicr:X8} V0=0x{Cpu.Gpr[PsxConstants.V0]:X8} A0=0x{Cpu.Gpr[PsxConstants.A0]:X8}");
-				PsxLog.Write(PsxLogCategory.PSX, PsxLogLevel.Warn,
-					$"[IDLE DIAG] Code@PC: {instr0:X8} {instr1:X8} {instr2:X8} {instr3:X8}");
-				// Also dump GPR
-				var sb = new System.Text.StringBuilder("[IDLE DIAG] GPR:");
-				for (int i = 0; i < 32; i++)
-					sb.Append($" r{i}={Cpu.Gpr[i]:X8}");
-				PsxLog.Write(PsxLogCategory.PSX, PsxLogLevel.Warn, sb.ToString());
-				// Dump MDEC state
-				Mdec.LogDiagnostics();
-				// Dump CDROM state
-				PsxLog.Write(PsxLogCategory.PSX, PsxLogLevel.Warn,
-					$"[IDLE DIAG] CDROM: iFlags=0x{Cdrom.DiagIFlags:X2} iEnable=0x{Cdrom.DiagIEnable:X2} reading={Cdrom.DiagReading} sectorPending={Cdrom.DiagSectorPending} has2nd={Cdrom.DiagHas2ndResponse} cmdPending={Cdrom.DiagCmdPending} lastCmd=0x{Cdrom.DiagLastCmd:X2} seekLba={Cdrom.DiagSeekLba} lastLba={Cdrom.DiagLastLba} tracks={Cdrom.DiagTrackCount} region={Cdrom.DiagRegion}");
-				// Dump EvCB entry [0] : all 7 words (0x1C bytes)
-				uint evPtr = Cpu.Gpr[3]; // v1 points to EvCB base
-				if (evPtr != 0)
-				{
-					uint eBase = evPtr & 0x1FFFFF;
-					var esb = new System.Text.StringBuilder($"[IDLE DIAG] EvCB[0]@0x{evPtr:X8} raw:");
-					for (int w = 0; w < 7; w++)
-						esb.Append($" +{w * 4:X2}={Memory.ReadWord(eBase + (uint)(w * 4)):X8}");
-					PsxLog.Write(PsxLogCategory.PSX, PsxLogLevel.Warn, esb.ToString());
-				}
-				// Dump WaitEvent loop code (4 instructions before PC and 4 at PC)
-				{
-					var csb = new System.Text.StringBuilder("[IDLE DIAG] Code@PC-16:");
-					for (int ci = -4; ci < 4; ci++)
-					{
-						uint cAddr = (uint)((int)pc + ci * 4);
-						csb.Append($" [{(ci >= 0 ? "+" : "")}{ci * 4}]={Memory.ReadWord(cAddr):X8}");
-					}
-					PsxLog.Write(PsxLogCategory.PSX, PsxLogLevel.Warn, csb.ToString());
-				}
-				// Enable BIOS tracing for next 200 calls to see what the game is doing
-				Cpu.EnableBiosTrace();
-			}
-		}
-		else
-		{
-			_idleFrameCount = 0;
-		}
 
 		Perf.AddTicks(PsxPerfSection.PsxFrameCpuRun, cpuRunTicks);
 		Perf.AddTicks(PsxPerfSection.PsxFramePeripherals, peripheralTicks);

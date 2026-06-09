@@ -80,11 +80,7 @@ public class PsxMdec
 	// Diagnostics: count commands and decoded macroblocks to understand data flow
 	private int _diagCmd1Count;
 	public int DiagCmd1Count => _diagCmd1Count;
-	private int _diagCmd2Count;
-	private int _diagCmd3Count;
 	private int _diagMacroblockCount;
-	private int _diagDmaWriteWords;
-	private int _diagDmaReadWords;
 	// Per-cmd1 stats: halfwords declared at start, MB count at start, so we can compute
 	// how many halfwords each cmd1 actually consumed and at what halfwords-per-MB rate.
 	private int _diagPrevCmd1Halfwords;
@@ -136,13 +132,13 @@ public class PsxMdec
 	//   - Per-cmd1 bulk BUSY-extension charge after synchronous decode: matched
 	//     the BUSY-bit poll window but DMA1 still drained immediately, so the
 	//     IRQ delivery timing was wrong (handler ran AFTER halt check).
-	private const int MDEC_CYCLES_PER_BLOCK = 448;
-	private const int MDEC_BLOCKS_PER_MB = 6;
-	private const int MDEC_CYCLES_PER_MB = MDEC_CYCLES_PER_BLOCK * MDEC_BLOCKS_PER_MB; // = 2688
+	private const int CyclesPerBlock = 448;
+	private const int BlocksPerMB = 6;
+	private const int CyclesPerMB = CyclesPerBlock * BlocksPerMB; // = 2688
 	private int _busyExtensionCycles;
 
 	// Ticks until the staged macroblock's RGB is released into _outFifo.
-	// Only meaningful while _state == WritingMacroblock; set to MDEC_CYCLES_PER_MB
+	// Only meaningful while _state == WritingMacroblock; set to CyclesPerMB
 	// after each successful decode, decremented by Tick().
 	private int _blockReadyCycles;
 
@@ -182,7 +178,7 @@ public class PsxMdec
 			_blocks[i] = new short[64];
 
 		// MDEC block-copy-out event. Replaces the LegacyTick path's per-tick
-		// decrement of _blockReadyCycles. Scheduled for MDEC_CYCLES_PER_MB cycles when
+		// decrement of _blockReadyCycles. Scheduled for CyclesPerMB cycles when
 		// Execute transitions to WritingMacroblock; callback runs FireBlockCopyOut + chains the next
 		// MB if more input bits are available. Deactivated otherwise.
 		_event = new TimingEvent(
@@ -302,8 +298,8 @@ public class PsxMdec
 		_currentQScale = 0;
 		_inFifo.Clear();
 		_outFifo.Clear();
-		_diagCmd1Count = _diagCmd2Count = _diagCmd3Count = 0;
-		_diagMacroblockCount = _diagDmaWriteWords = _diagDmaReadWords = 0;
+		_diagCmd1Count = 0;
+		_diagMacroblockCount = 0;
 		_diagPrevCmd1Halfwords = _diagPrevCmd1MbCount = 0;
 		_busyExtensionCycles = 0;
 		_blockReadyCycles = 0;
@@ -403,7 +399,6 @@ public class PsxMdec
 	// DMA ch0 (MDECin): feed compressed macroblock data from RAM.
 	public void DmaWrite(uint[] words, int count)
 	{
-		_diagDmaWriteWords += count;
 		for (int i = 0; i < count; i++)
 		{
 			_inFifo.Enqueue((ushort)(words[i] & 0xFFFF));
@@ -435,25 +430,12 @@ public class PsxMdec
 				buf[total + i] = _outFifo.Dequeue();
 			total += n;
 		}
-		_diagDmaReadWords += total;
 		// OutFIFO drained; may now be empty -> drop DMA1 request.
 		UpdateDmaRequests();
 		return total;
 	}
 
-	// Dump MDEC activity summary, called on demand for diagnostics.
-	public void LogDiagnostics()
-	{
-		PsxLog.Write(PsxLogCategory.DMA, PsxLogLevel.Warn,
-			$"[MDEC DIAG] cmd1(decode)={_diagCmd1Count} cmd2(IQ)={_diagCmd2Count} cmd3(scale)={_diagCmd3Count}" +
-			$" macroblocks={_diagMacroblockCount} dmaIn={_diagDmaWriteWords}w dmaOut={_diagDmaReadWords}w" +
-			$" state={_state} inFifo={_inFifo.Count} outFifo={_outFifo.Count}" +
-			$" depth={_outputDepth} signed={_outputSigned} bit15={_outputBit15}" +
-			$" iqY[0]={_iqY[0]} scaleOk={_scaleTable[0] != 0}");
-	}
-
 	// Main state machine
-
 	private void Execute()
 	{
 		for (; ; )
@@ -518,7 +500,6 @@ public class PsxMdec
 								break;
 
 							case 2: // Set Quantization Table
-								_diagCmd2Count++;
 								_remainingHalfwords = (16 + (((cw & 1) != 0) ? 16 : 0)) * 2;
 								_state = MdecState.SetIqTable;
 								PsxLog.Write(PsxLogCategory.DMA, PsxLogLevel.Info,
@@ -526,7 +507,6 @@ public class PsxMdec
 								break;
 
 							case 3: // Set IDCT Scale Table
-								_diagCmd3Count++;
 								_remainingHalfwords = 64; // 32 words = 64 halfwords
 								_state = MdecState.SetScaleTable;
 								PsxLog.Write(PsxLogCategory.DMA, PsxLogLevel.Info, "[MDEC] cmd3 SetScaleTable");
@@ -569,11 +549,11 @@ public class PsxMdec
 						// previously copied-out blocks are there, which DMA1 has
 						// already drained).
 						_state = MdecState.WritingMacroblock;
-						_blockReadyCycles = MDEC_CYCLES_PER_MB;
+						_blockReadyCycles = CyclesPerMB;
 						// Schedule the block-ready event so the copy-out fires
-						// at MDEC_CYCLES_PER_MB cycles from now, previously the LegacyTick
+						// at CyclesPerMB cycles from now, previously the LegacyTick
 						// path decremented _blockReadyCycles per 256-cycle batch.
-						_event.Schedule(MDEC_CYCLES_PER_MB);
+						_event.Schedule(CyclesPerMB);
 						return;
 					}
 

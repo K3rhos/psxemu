@@ -176,7 +176,7 @@ public sealed class TimingEvent
 	{
 		Owner ??= EventScheduler.Default;
 		long now = Owner.GlobalTickCounter + (Owner.CpuPendingTicksGetter?.Invoke() ?? 0);
-		long ticksSinceLast = now - LastRunTime;
+		long ticksSinceLast = long.Abs(now - LastRunTime);
 		if (ticksSinceLast <= 0 && !force)
 			return;
 		LastRunTime = now;
@@ -191,7 +191,7 @@ public sealed class TimingEvent
 	{
 		Owner ??= EventScheduler.Default;
 		long now = Owner.GlobalTickCounter + (Owner.CpuPendingTicksGetter?.Invoke() ?? 0);
-		return (int)(now - LastRunTime);
+		return (int)long.Abs(now - LastRunTime);
 	}
 
 	/// <summary>Ticks until the next scheduled fire (negative if overdue).</summary>
@@ -199,7 +199,7 @@ public sealed class TimingEvent
 	{
 		Owner ??= EventScheduler.Default;
 		long now = Owner.GlobalTickCounter + (Owner.CpuPendingTicksGetter?.Invoke() ?? 0);
-		return (int)(NextRunTime - now);
+		return (int)long.Abs(NextRunTime - now);
 	}
 
 	// ---- Save-state support ----

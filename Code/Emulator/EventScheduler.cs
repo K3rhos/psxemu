@@ -272,7 +272,7 @@ public sealed class EventScheduler
 	public void UpdateCpuDowncount()
 	{
 		if (_head == null) return;
-		int eventDowncount = (int)System.Math.Max(0, _head.NextRunTime - GlobalTickCounter);
+		int eventDowncount = (int)long.Max(0, _head.NextRunTime - GlobalTickCounter);
 		bool hasIrq = CpuHasPendingInterruptGetter?.Invoke() ?? false;
 		CpuDowncountSetter?.Invoke(hasIrq ? 0 : eventDowncount);
 	}
@@ -311,15 +311,15 @@ public sealed class EventScheduler
 		{
 			TimingEvent ev = _head;
 			if (ev == null) break;
-			GlobalTickCounter = System.Math.Min(newGlobalTicks, ev.NextRunTime);
-
+			GlobalTickCounter = long.Min(newGlobalTicks, ev.NextRunTime);
+			
 			while (GlobalTickCounter >= ev.NextRunTime)
 			{
 				_currentEvent = ev;
-
+				
 				int ticksLate = (int)(GlobalTickCounter - ev.NextRunTime);
 				int ticksToExecute = (int)(GlobalTickCounter - ev.LastRunTime);
-
+				
 				// Cache the planned next-run-time BEFORE firing the callback
 				// so that callbacks calling SetInterval still get a sensible
 				// auto-reschedule. Snapshot the pre-callback NextRunTime too

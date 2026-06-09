@@ -301,7 +301,7 @@ public partial class MipsCore
 	}
 
 	// BIOS syscall tracing, always on but filters noisy calls
-	private bool _biosTraceEnabled = true;
+	private bool _biosTraceEnabled;
 	public void EnableBiosTrace() { _biosTraceEnabled = true; }
 
 	// --- Load delay slot ---

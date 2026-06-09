@@ -405,7 +405,6 @@ public partial class PsxGpu
 						// then replicated as scalexscale blocks to fill the upscaled
 						// display buffer. See Read24BitDisplayPixel for the layout.
 						int nativeRow = row / s;
-						int nativeRowBaseInBuf = nativeRow;
 						for (int col = 0; col < dwS; col++)
 						{
 							int nativeCol = col / s;

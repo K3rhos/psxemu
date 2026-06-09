@@ -237,7 +237,7 @@ public sealed partial class EmulatorComponent : Component, IHotloadManaged
 			long lastPresented = Interlocked.Exchange(ref _lastPresentedFrameTick, now);
 			if (lastPresented != 0)
 				Core.Perf.AddPacedFrameTicks(now - lastPresented);
-
+			
 			long uploadStart = PsxPerfMonitor.Stamp();
 			Core.Gpu?.UploadAndBuildCommandList();
 			Core.Perf.AddTicks(PsxPerfSection.MainGpuUpload, PsxPerfMonitor.Stamp() - uploadStart);
